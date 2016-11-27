@@ -1,6 +1,7 @@
 package com.ultracreation.blelib.bean;
 
-import com.ultracreation.ble_lib.utils.BluetoothUtils;
+
+import com.ultracreation.blelib.utils.BluetoothUtils;
 
 import java.util.HashMap;
 import java.util.Map;
