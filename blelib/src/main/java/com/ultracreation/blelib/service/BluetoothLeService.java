@@ -34,11 +34,12 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
+
 import com.ultracreation.blelib.bean.GattDataSource;
 import com.ultracreation.blelib.bean.NewDeviceDataSource;
 import com.ultracreation.blelib.bean.SampleGattAttributes;
 import com.ultracreation.blelib.impl.BodyTonerCmdFormaterListener;
-import com.ultracreation.blelib.utils.BluetoothUtils;
+import com.ultracreation.blelib.tools.TShell;
 import com.ultracreation.blelib.utils.BodyTonerCmdFormater;
 import com.ultracreation.blelib.utils.KLog;
 import com.ultracreation.blelib.utils.XBluetoothGatt;
@@ -91,6 +92,8 @@ public class BluetoothLeService extends Service {
      * Bluetooth Gatt map container.
      */
     private GattDataSource mGattSrc = GattDataSource.defaultSrc();
+
+
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
 
@@ -98,32 +101,19 @@ public class BluetoothLeService extends Service {
         public void onLeScan(final BluetoothDevice device, final int rssi,
                              byte[] scanRecord) {
             if (device != null) {
-                String name = device.getName();
-                // 只显示我们自己的设备
-                if (BluetoothUtils.MINITENS.equals(name)) {//过滤 bluetens minitens BluetoothUtils.isBluetensDeviceName(name) ||
-                    KLog.i(TAG, "LeScanCallback:address=" + device.getAddress() + " rssi=" + rssi + "   contain=" + NewDeviceDataSource.defaultSrc().count());
-                    //add by 发送rssi 值
-                    if (!NewDeviceDataSource.defaultSrc().contain(device.getAddress())) {
-                        mScanHandler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                NewDeviceDataSource.defaultSrc().addItem(device.getAddress());
-                                //将回调的RSSI值赋值
-                                broadcastUpdateDevices(device.getAddress());
-                            }
-                        }, 10);
-                    }
-
-                    mScanHandler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            broadcastUpdateRssi(device.getAddress(), rssi);
-                        }
-                    }, 10);
-                }
+                TShell.instance.addDeivce(device.getAddress(), device.getName(), rssi);
             }
         }
     };
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        final String[] filters = {"bluetens", "bluetenx", "bluetensQ"};
+        TShell.instance.setFilters(filters);
+        TShell.instance.setTimeOut(10000);
+    }
+
     /**
      * The command formatter.
      */

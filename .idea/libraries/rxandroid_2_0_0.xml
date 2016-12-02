@@ -7,6 +7,7 @@
     <JAVADOC />
     <SOURCES>
       <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.reactivex.rxjava2/rxandroid/2.0.0/556f370ddb42e819b38d5b723a5e7efa0587532f/rxandroid-2.0.0-sources.jar!/" />
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/io.reactivex.rxjava2/rxandroid/2.0.0/556f370ddb42e819b38d5b723a5e7efa0587532f/rxandroid-2.0.0-sources.jar!/" />
     </SOURCES>
   </library>
 </component>
