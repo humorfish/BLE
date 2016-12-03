@@ -17,8 +17,8 @@ public enum TDataManager {
         mTManager = new TManager();
     }
 
-    public void receiveData(byte[] data){
-        mTManager.receiveData(data);
+    public void receiveData(byte[] data, String address){
+        mTManager.receiveData(data, address);
     }
 
     public Subject<String> getData(){
@@ -35,7 +35,7 @@ public enum TDataManager {
         }
 
         @Override
-        public void receiveData(byte[] data) {
+        public void receiveData(byte[] data, String address) {
             String tmp = new String(data);
             if (!TextUtils.isEmpty(tmp))
             {
@@ -55,6 +55,6 @@ public enum TDataManager {
 
 
     private interface IManager{
-        void receiveData(byte[] data);
+        void receiveData(byte[] data, String address);
     }
 }
