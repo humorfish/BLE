@@ -2,6 +2,8 @@ package com.ultracreation.blelib.tools;
 
 import android.text.TextUtils;
 
+import com.ultracreation.blelib.utils.KLog;
+
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -11,50 +13,53 @@ import io.reactivex.subjects.Subject;
 public enum TDataManager {
     instence;
 
+    private static final String TAG = TDataManager.class.getSimpleName();
     private TManager mTManager;
 
-    TDataManager(){
+    TDataManager() {
         mTManager = new TManager();
     }
 
-    public void receiveData(byte[] data, String address){
+    public void receiveData(byte[] data, String address) {
         mTManager.receiveData(data, address);
     }
 
-    public Subject<String> getData(){
+    public Subject<String> getData() {
         return mTManager.mSubject;
     }
 
-    private class TManager implements IManager{
+    private interface IManager {
+        void receiveData(byte[] data, String address);
+    }
+
+    private class TManager implements IManager {
         Subject<String> mSubject;
         StringBuilder mStringBuilder;
 
-        TManager(){
+        TManager() {
             mSubject = PublishSubject.create();
             mStringBuilder = new StringBuilder();
         }
 
         @Override
-        public void receiveData(byte[] data, String address) {
-            String tmp = new String(data);
-            if (!TextUtils.isEmpty(tmp))
-            {
+        public void receiveData(byte[] datas, String address) {
+            String tmp = new String(datas);
+            if (! TextUtils.isEmpty(tmp)) {
                 int index = tmp.indexOf("\r\n");
-                if (index > 0)
-                {
-                    String before = mStringBuilder.substring(0, index);
-                    String after = mStringBuilder.substring(index + 1, mStringBuilder.length());
-                    mSubject.onNext(before);
+                KLog.i(TAG, "data:" + tmp.replace("\r\n", "") + "  index:" + index);
+
+                if (index > 0) {
+                    String before = tmp.substring(0, index);
+                    String after = tmp.substring(index + 2, tmp.length());
+                    mStringBuilder.append(before);
+
+                    mSubject.onNext(mStringBuilder.toString());
                     mStringBuilder.setLength(0);
                     mStringBuilder.append(after);
                 } else
                     mStringBuilder.append(tmp);
             }
+
         }
-    }
-
-
-    private interface IManager{
-        void receiveData(byte[] data, String address);
     }
 }
