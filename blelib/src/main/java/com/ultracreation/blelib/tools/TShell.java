@@ -12,7 +12,6 @@ import com.ultracreation.blelib.utils.KLog;
 
 import java.util.ArrayList;
 
-import io.reactivex.Observable;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -34,8 +33,8 @@ public enum TShell {
     }
 
 
-    public Observable<String> Request(TService service, String cmd, boolean isCallBack, int timeOut){
-        return service.write(cmd.getBytes(), timeOut).flatMap(Line -> );
+    public Subject<String> Request(TService service, String cmd, Subject<String> isCallBack, int timeOut){
+        return service.write(cmd.getBytes(), timeOut, isCallBack);
     }
 
     public void setFilters(String[] filters) {

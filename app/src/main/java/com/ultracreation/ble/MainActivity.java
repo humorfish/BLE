@@ -4,12 +4,12 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
 import com.ultracreation.blelib.tools.INotification;
-import com.ultracreation.blelib.tools.TDataManager;
 import com.ultracreation.blelib.tools.TService;
 import com.ultracreation.blelib.tools.TShell;
 import com.ultracreation.blelib.utils.KLog;
 
 import io.reactivex.disposables.Disposable;
+import io.reactivex.subjects.PublishSubject;
 
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
@@ -35,7 +35,9 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onConnected() {
                     KLog.i(TAG, "--1-->onConnected");
-                    service.write();
+                    service.write(">ver \r\n".getBytes(), 100, PublishSubject.create()).subscribe(value -> {
+                        KLog.i(TAG, "value:" + value);
+                    });
                 }
 
                 @Override
@@ -48,10 +50,6 @@ public class MainActivity extends AppCompatActivity {
                     KLog.i(TAG, "--3-->onDisconnected");
                 }
             });
-        });
-
-        TDataManager.instence.getData().subscribe(data -> {
-            KLog.i(TAG, "data:" + data);
         });
     }
 

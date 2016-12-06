@@ -30,7 +30,7 @@ import com.ultracreation.blelib.utils.XLog;
 import java.util.LinkedList;
 import java.util.UUID;
 
-import io.reactivex.Observable;
+import io.reactivex.subjects.Subject;
 
 /**
  * Created by you on 2016/12/3.
@@ -43,7 +43,7 @@ public class TService extends Service implements IService {
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
-    private String connectAddress;
+    private StringBuilder mStringBuilder;
     private int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
@@ -104,6 +104,8 @@ public class TService extends Service implements IService {
         }
     };
     private LinkedList<byte[]> dataQueue = new LinkedList<>();
+    private LinkedList<Subject<String>> readQueue = new LinkedList<>();
+
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
@@ -164,6 +166,7 @@ public class TService extends Service implements IService {
             return false;
         }
 
+        mStringBuilder = new StringBuilder();
         return true;
     }
 
@@ -226,10 +229,30 @@ public class TService extends Service implements IService {
             return;
         }
 
-        final String macAddr = gatt.getDevice().getAddress();
-
         if (characteristicUuid.equals(SampleGattAttributes.BODY_TONER_BOLUTEK)) {
-            TDataManager.instence.receiveData(rawData, macAddr);
+            String tmp = new String(rawData);
+            if (! TextUtils.isEmpty(tmp)) {
+                int index = tmp.indexOf("\r\n");
+                KLog.i(TAG, "data:" + tmp.replace("\r\n", "") + "  index:" + index);
+
+                if (index > 0) {
+                    String before = tmp.substring(0, index);
+                    String after = tmp.substring(index + 2, tmp.length());
+                    mStringBuilder.append(before);
+
+                    if (readQueue.size() > 0) {
+                        Subject<String> subject = readQueue.peek();
+                        subject.onNext(mStringBuilder.toString());
+                        subject.onComplete();
+
+                        dataQueue.remove();
+                        readQueue.remove();
+                    }
+                    mStringBuilder.setLength(0);
+                    mStringBuilder.append(after);
+                } else
+                    mStringBuilder.append(tmp);
+            }
         }
     }
 
@@ -281,10 +304,22 @@ public class TService extends Service implements IService {
     }
 
     @Override
-    public Observable<String> write(byte[] datas, int timeOut) {
+    public Subject<String> write(byte[] datas, int timeOut, Subject<String> isCallBack) {
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED) {
             dataQueue.add(datas);
+            readQueue.add(isCallBack);
+
+            final BluetoothGattCharacteristic findCharacteristic = getCharacteristicByUuid(
+                    mBluetoothGatt, SampleGattAttributes.SERVICE_BOLUTEK,
+                    SampleGattAttributes.BODY_TONER_WRITE);
+
+            if (null != findCharacteristic)
+                writeDataDirect(findCharacteristic, datas, 0);
+
+            return isCallBack;
         }
+
+        return null;
     }
 
     @Override
@@ -294,7 +329,6 @@ public class TService extends Service implements IService {
     @Override
     public void makeConnection(String address, INotification mINotification) {
         notification = mINotification;
-        connectAddress = address;
 
         if (mBluetoothAdapter != null && !TextUtils.isEmpty(address)) {
             // TODO:Check if the address is in the gatt source.
