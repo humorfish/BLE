@@ -47,8 +47,9 @@ Temporary Items
 .apdisk
 
 .gradle
-.gradle\*
+.gradle/
 .idea
-.idea\*
+.idea/
 build
-build\*
+build/
+.idea/workspace.xml
