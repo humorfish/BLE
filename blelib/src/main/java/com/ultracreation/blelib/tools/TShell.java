@@ -11,7 +11,11 @@ import android.widget.Toast;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
+import io.reactivex.Observer;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -23,17 +27,43 @@ public enum TShell {
     instance;
 
     private final static String TAG = TShell.class.getSimpleName();
+    public Map<String, Disposable> disposableMap;
     private Context context;
     private TGattScaner mTGattScaner;
     private Subject<TService> serviceSubject;
+    private TService mSevice;
+
+    private ServiceConnection mServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            if (iBinder == null) {
+                throw new Error("bind server failed!!");
+            }
+
+            mSevice = ((TService.LocalBinder) iBinder).getService();
+            if (!mSevice.initialize()) {
+                KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
+                System.exit(0);
+            }
+
+            serviceSubject.onNext(mSevice);
+            serviceSubject.onComplete();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            mSevice = null;
+            serviceSubject.onError(new Error("service disconned"));
+        }
+    };
 
     TShell() {
         mTGattScaner = new TGattScaner();
         serviceSubject = PublishSubject.create();
+        disposableMap = new HashMap<>();
     }
 
-
-    public Subject<String> Request(TService service, String cmd, Subject<String> isCallBack, int timeOut){
+    public Subject<String> Request(TService service, String cmd, Subject<String> isCallBack, int timeOut) {
         return service.write(cmd.getBytes(), timeOut, isCallBack);
     }
 
@@ -43,6 +73,9 @@ public enum TShell {
 
     public void setTimeOut(int timeOut) {
         mTGattScaner.setTimeOut(timeOut);
+    }
+
+    public void refreshConnectionTimeout() {
     }
 
     public Subject<ArrayList<String>> getDevices() {
@@ -75,30 +108,50 @@ public enum TShell {
         context.unbindService(mServiceConnection);
     }
 
-    private ServiceConnection mServiceConnection = new ServiceConnection() {
-        private TService mSevice;
+    /* TShellSimpleRequest */
 
-        @Override
-        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            if (iBinder == null) {
-                throw new Error("bind server failed!!");
-            }
+    /**
+     * the request narrow to 1 ack 1 answer simple request, most cases toPromise
+     */
 
-            mSevice = ((TService.LocalBinder) iBinder).getService();
-            if (!mSevice.initialize()) {
-                KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
-                System.exit(0);
-            }
+    class TShellSimpleRequest extends TShellRequest {
+        private String Cmd;
+        private CallBack callBack;
 
-            serviceSubject.onNext(mSevice);
-            serviceSubject.onComplete();
+        public TShellSimpleRequest(TShell shell, int Timeout, String tag) {
+            super(shell, Timeout, tag);
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-            mSevice = null;
-            serviceSubject.onError(new Error("service disconned"));
-        }
-    };
+        void Start(String Cmd, CallBack callBack, Object[] ...args) {
+            this.Cmd = Cmd;
+            this.callBack = callBack;
 
+            if (mSevice == null){
+                error();
+                return;
+            }
+
+            ObserveSend(this.Cmd)
+                    .then(Observer -> Observer.subscribe(next -> this.refreshTimeout()))
+            .catch(err -> this.error(err));
+        }
+
+        @Override
+        void Notification(String line) {
+            try {
+                if (this.callBack.onCall(line)) {
+                    this.doOnNext(line);
+                    this.complete();
+                }
+            } catch (Exception e) {
+                this.error();
+            }
+        }
+
+        @Override
+        protected void subscribeActual(Observer observer) {
+
+        }
+    }
 }
