@@ -3,23 +3,26 @@ package com.ultracreation.blelib.tools;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import io.reactivex.Observable;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.Subject;
 
 /**
  * Created by you on 2016/12/7.
  */
-abstract class TShellRequest extends Observable<Object> {
+abstract class TShellRequest{
     protected TShell shell;
     protected int TimeoutInterval;
     private Timer timer;
     private TimerTask timeOutTask;
     private Disposable disposable;
+    protected Subject<String> mSubject;
 
-    public TShellRequest(TShell shell, int Timeout, String tag) {
+    public TShellRequest(TShell shell, int Timeout, String cmd) {
         this.shell = shell;
         TimeoutInterval = Timeout;
-        disposable = shell.disposableMap.get(tag);
+        mSubject = PublishSubject.create();
+        disposable = shell.disposableMap.get(cmd);
         refreshTimeout();
     }
 
@@ -57,22 +60,20 @@ abstract class TShellRequest extends Observable<Object> {
     /// @override
     void complete() {
         if (disposable != null && !disposable.isDisposed()) {
-            complete();
+            mSubject.onComplete();
             Disponse();
         }
     }
 
     void next(String datas) {
         if (disposable != null && !disposable.isDisposed())
-        {
-
-        }
+            mSubject.onNext(datas);
     }
 
     /// @override
     void error() {
         if (disposable != null && !disposable.isDisposed()) {
-            doOnError(new )
+            mSubject.onError(new Error("time out"));
             Disponse();
         }
     }

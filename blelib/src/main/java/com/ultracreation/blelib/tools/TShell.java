@@ -1,5 +1,6 @@
 package com.ultracreation.blelib.tools;
 
+import android.bluetooth.BluetoothProfile;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -12,11 +13,10 @@ import com.ultracreation.blelib.utils.KLog;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
-import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
 /**
@@ -30,8 +30,10 @@ public enum TShell {
     public Map<String, Disposable> disposableMap;
     private Context context;
     private TGattScaner mTGattScaner;
-    private Subject<TService> serviceSubject;
     private TService mSevice;
+    private String address;
+    private INotification mNotification;
+    private LinkedList<TShellSimpleRequest> requests;
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
@@ -46,33 +48,75 @@ public enum TShell {
                 System.exit(0);
             }
 
-            serviceSubject.onNext(mSevice);
-            serviceSubject.onComplete();
+            mSevice.scanDevice(true);
         }
 
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             mSevice = null;
-            serviceSubject.onError(new Error("service disconned"));
         }
     };
 
     TShell() {
         mTGattScaner = new TGattScaner();
-        serviceSubject = PublishSubject.create();
         disposableMap = new HashMap<>();
+        requests = new LinkedList<>();
     }
 
-    public Subject<String> Request(TService service, String cmd, Subject<String> isCallBack, int timeOut) {
-        return service.write(cmd.getBytes(), timeOut, isCallBack);
-    }
-
-    public void setFilters(String[] filters) {
+    public void get(String address, String[] filters, int timeOut) {
+        this.address = address;
         mTGattScaner.setFilters(filters);
+        mTGattScaner.setTimeOut(timeOut);
+
+        mNotification = new INotification() {
+            @Override
+            public void onConnected() {
+                if (requests.size() > 0) {
+                    TShellSimpleRequest request = requests.peekFirst();
+                    request.Start(request.cmd, request.callBack);
+                }
+            }
+
+            @Override
+            public void onConnectedFailed() {
+            }
+
+            @Override
+            public void onDisconnected() {
+                requests.clear();
+            }
+        };
     }
 
-    public void setTimeOut(int timeOut) {
-        mTGattScaner.setTimeOut(timeOut);
+    public Subject<String> versionRequest() {
+        return requestStart(">ver", 3000, new CallBack() {
+            @Override
+            public boolean onCall(String datas) {
+                if (datas.contains("ver"))
+                    return true;
+                else
+                    return false;
+            }
+        });
+    }
+
+    private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
+        TShellSimpleRequest request = new TShellSimpleRequest(this, timeOut, cmd);
+        requests.add(request);
+
+        if (mSevice.mConnectionState != BluetoothProfile.STATE_CONNECTED)
+            mSevice.makeConnection(address, mNotification);
+        else
+            request.Start(cmd, callBack);
+
+        return request.mSubject;
+    }
+
+    public void receiveData(String line) {
+        if (requests.size() > 0) {
+            requests.peekFirst().Notification(line);
+            requests.removeFirst();
+        }
     }
 
     public void refreshConnectionTimeout() {
@@ -82,15 +126,11 @@ public enum TShell {
         return mTGattScaner.getDevices();
     }
 
-    public void clear() {
-        mTGattScaner.clear();
-    }
-
     public void addDeivce(String address, String name, int rssi) {
         mTGattScaner.addDevice(address, name, rssi);
     }
 
-    public Subject<TService> bindBluetoothSevice(Context mContext) {
+    public boolean bindBluetoothSevice(Context mContext) {
         this.context = mContext;
 
         if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
@@ -99,9 +139,7 @@ public enum TShell {
         }
 
         Intent gattServiceIntent = new Intent(context, TService.class);
-        context.bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
-
-        return serviceSubject;
+        return context.bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
     }
 
     public void unBindBluetoothSevice() {
@@ -115,43 +153,26 @@ public enum TShell {
      */
 
     class TShellSimpleRequest extends TShellRequest {
-        private String Cmd;
-        private CallBack callBack;
+        public CallBack callBack;
+        public String cmd;
 
-        public TShellSimpleRequest(TShell shell, int Timeout, String tag) {
-            super(shell, Timeout, tag);
+        public TShellSimpleRequest(TShell shell, int Timeout, String cmd) {
+            super(shell, Timeout, cmd);
+            this.cmd = cmd;
         }
 
         @Override
-        void Start(String Cmd, CallBack callBack, Object[] ...args) {
-            this.Cmd = Cmd;
+        void Start(String cmd, CallBack callBack, Object[]... args) {
             this.callBack = callBack;
-
-            if (mSevice == null){
-                error();
-                return;
-            }
-
-            ObserveSend(this.Cmd)
-                    .then(Observer -> Observer.subscribe(next -> this.refreshTimeout()))
-            .catch(err -> this.error(err));
+            mSevice.write((cmd + "\r\n").getBytes());
         }
 
         @Override
         void Notification(String line) {
-            try {
-                if (this.callBack.onCall(line)) {
-                    this.doOnNext(line);
-                    this.complete();
-                }
-            } catch (Exception e) {
-                this.error();
+            if (callBack.onCall(line)) {
+                next(line);
+                complete();
             }
-        }
-
-        @Override
-        protected void subscribeActual(Observer observer) {
-
         }
     }
 }

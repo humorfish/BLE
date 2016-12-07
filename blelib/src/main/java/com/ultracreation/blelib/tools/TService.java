@@ -30,8 +30,6 @@ import com.ultracreation.blelib.utils.XLog;
 import java.util.LinkedList;
 import java.util.UUID;
 
-import io.reactivex.subjects.Subject;
-
 /**
  * Created by you on 2016/12/3.
  */
@@ -44,9 +42,9 @@ public class TService extends Service implements IService {
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
     private StringBuilder mStringBuilder;
-    private int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+    public int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
     private LinkedList<byte[]> dataQueue = new LinkedList<>();
-    private LinkedList<Subject<String>> readQueue = new LinkedList<>();
+
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -89,14 +87,14 @@ public class TService extends Service implements IService {
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                doCharacteristicDataDispatch(gatt, characteristic);
+                doCharacteristicDataDispatch(characteristic);
             }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
-            doCharacteristicDataDispatch(gatt, characteristic);
+            doCharacteristicDataDispatch(characteristic);
         }
 
         @Override
@@ -221,8 +219,7 @@ public class TService extends Service implements IService {
         }
     }
 
-    private void doCharacteristicDataDispatch(BluetoothGatt gatt,
-                                              BluetoothGattCharacteristic characteristic) {
+    private void doCharacteristicDataDispatch(BluetoothGattCharacteristic characteristic) {
         final UUID characteristicUuid = characteristic.getUuid();
         final byte[] rawData = characteristic.getValue();
         if (null == rawData || rawData.length < 1) {
@@ -239,15 +236,10 @@ public class TService extends Service implements IService {
                     String before = tmp.substring(0, index);
                     String after = tmp.substring(index + 2, tmp.length());
                     mStringBuilder.append(before);
+                    dataQueue.remove();
 
-                    if (readQueue.size() > 0) {
-                        Subject<String> subject = readQueue.peek();
-                        subject.onNext(mStringBuilder.toString());
-                        subject.onComplete();
+                    TShell.instance.receiveData(mStringBuilder.toString());
 
-                        dataQueue.remove();
-                        readQueue.remove();
-                    }
                     mStringBuilder.setLength(0);
                     mStringBuilder.append(after);
                 } else
@@ -304,10 +296,9 @@ public class TService extends Service implements IService {
     }
 
     @Override
-    public Subject<String> write(byte[] datas, int timeOut, Subject<String> isCallBack) {
+    public void write(byte[] datas) {
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED) {
             dataQueue.add(datas);
-            readQueue.add(isCallBack);
 
             final BluetoothGattCharacteristic findCharacteristic = getCharacteristicByUuid(
                     mBluetoothGatt, SampleGattAttributes.SERVICE_BOLUTEK,
@@ -316,10 +307,7 @@ public class TService extends Service implements IService {
             if (null != findCharacteristic)
                 writeDataDirect(findCharacteristic, datas, 0);
 
-            return isCallBack;
         }
-
-        return null;
     }
 
     @Override
