@@ -45,6 +45,8 @@ public class TService extends Service implements IService {
     private INotification notification;
     private StringBuilder mStringBuilder;
     private int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+    private LinkedList<byte[]> dataQueue = new LinkedList<>();
+    private LinkedList<Subject<String>> readQueue = new LinkedList<>();
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -103,9 +105,6 @@ public class TService extends Service implements IService {
             doReadWriteAction(gatt, characteristic);
         }
     };
-    private LinkedList<byte[]> dataQueue = new LinkedList<>();
-    private LinkedList<Subject<String>> readQueue = new LinkedList<>();
-
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
@@ -143,6 +142,7 @@ public class TService extends Service implements IService {
     public void onDestroy() {
         super.onDestroy();
         KLog.i(TAG, "onDestroy");
+        scanDevice(false);
     }
 
     /**
@@ -231,7 +231,7 @@ public class TService extends Service implements IService {
 
         if (characteristicUuid.equals(SampleGattAttributes.BODY_TONER_BOLUTEK)) {
             String tmp = new String(rawData);
-            if (! TextUtils.isEmpty(tmp)) {
+            if (!TextUtils.isEmpty(tmp)) {
                 int index = tmp.indexOf("\r\n");
                 KLog.i(TAG, "data:" + tmp.replace("\r\n", "") + "  index:" + index);
 
@@ -324,6 +324,10 @@ public class TService extends Service implements IService {
 
     @Override
     public void disconnect() {
+        if (mBluetoothGatt != null) {
+            mBluetoothGatt.disconnect();
+            mBluetoothGatt.close();
+        }
     }
 
     @Override
