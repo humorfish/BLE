@@ -1,9 +1,10 @@
 package com.ultracreation.blelib.tools;
 
+import com.ultracreation.blelib.utils.KLog;
+
 import java.util.Timer;
 import java.util.TimerTask;
 
-import io.reactivex.disposables.Disposable;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -11,29 +12,30 @@ import io.reactivex.subjects.Subject;
  * Created by you on 2016/12/7.
  */
 abstract class TShellRequest{
+    private final String TAG = "TShellRequest";
+
     protected TShell shell;
     protected int TimeoutInterval;
     private Timer timer;
     private TimerTask timeOutTask;
-    private Disposable disposable;
     protected Subject<String> mSubject;
 
-    public TShellRequest(TShell shell, int Timeout, String cmd) {
+    public TShellRequest(TShell shell, int Timeout) {
         this.shell = shell;
         TimeoutInterval = Timeout;
         mSubject = PublishSubject.create();
-        disposable = shell.disposableMap.get(cmd);
         refreshTimeout();
     }
 
     /* called by TShell.RequestStart */
-    abstract void Start(String Cmd, CallBack callBack, Object[] ... args);
+    abstract void Start(String Cmd, Object[] ... args);
 
     /* called by TShell */
     abstract void Notification(String Line);
 
     void refreshTimeout() {
-        if (disposable != null && disposable.isDisposed())
+        KLog.i(TAG, "refreshTimeout.hasObservers:" + mSubject.hasObservers());
+        if (mSubject.hasComplete() || mSubject.hasThrowable())
             return;
 
         // also delay Connection Timeout
@@ -47,34 +49,27 @@ abstract class TShellRequest{
         setTimeout();
     }
 
-    private void Disponse() {
-        clearTimeout();
-
-        if (disposable != null && ! disposable.isDisposed())
-            disposable.dispose();
-
-        shell = null;
-    }
-
     /* Subject */
     /// @override
     void complete() {
-        if (disposable != null && !disposable.isDisposed()) {
+        KLog.i(TAG, "complete.hasObservers:" + mSubject.hasObservers());
+        if (mSubject.hasObservers()) {
             mSubject.onComplete();
-            Disponse();
+            refreshTimeout();
         }
     }
 
     void next(String datas) {
-        if (disposable != null && !disposable.isDisposed())
+        KLog.i(TAG, "next.hasObservers:" + mSubject.hasObservers());
+        if (mSubject.hasObservers())
             mSubject.onNext(datas);
     }
 
     /// @override
-    void error() {
-        if (disposable != null && !disposable.isDisposed()) {
-            mSubject.onError(new Error("time out"));
-            Disponse();
+    void error(String message) {
+        if (mSubject.hasObservers()) {
+            mSubject.onError(new Throwable(message));
+            refreshTimeout();
         }
     }
 
@@ -89,7 +84,7 @@ abstract class TShellRequest{
         timeOutTask = new TimerTask() {
             @Override
             public void run() {
-                error();
+                error("time out");
             }
         };
         timer.schedule(timeOutTask, TimeoutInterval);

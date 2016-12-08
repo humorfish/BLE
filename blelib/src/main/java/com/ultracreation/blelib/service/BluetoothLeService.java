@@ -110,8 +110,6 @@ public class BluetoothLeService extends Service {
     public void onCreate() {
         super.onCreate();
         final String[] filters = {"bluetens", "bluetenx", "bluetensQ"};
-        TShell.instance.setFilters(filters);
-        TShell.instance.setTimeOut(10000);
     }
 
     /**

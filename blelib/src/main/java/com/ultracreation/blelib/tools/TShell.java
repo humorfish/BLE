@@ -12,11 +12,8 @@ import android.widget.Toast;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.Map;
 
-import io.reactivex.disposables.Disposable;
 import io.reactivex.subjects.Subject;
 
 /**
@@ -27,7 +24,6 @@ public enum TShell {
     instance;
 
     private final static String TAG = TShell.class.getSimpleName();
-    public Map<String, Disposable> disposableMap;
     private Context context;
     private TGattScaner mTGattScaner;
     private TService mSevice;
@@ -59,26 +55,24 @@ public enum TShell {
 
     TShell() {
         mTGattScaner = new TGattScaner();
-        disposableMap = new HashMap<>();
         requests = new LinkedList<>();
     }
 
-    public void get(String address, String[] filters, int timeOut) {
+    public void get(String address) {
         this.address = address;
-        mTGattScaner.setFilters(filters);
-        mTGattScaner.setTimeOut(timeOut);
-
         mNotification = new INotification() {
             @Override
             public void onConnected() {
                 if (requests.size() > 0) {
                     TShellSimpleRequest request = requests.peekFirst();
-                    request.Start(request.cmd, request.callBack);
+                    request.Start(request.cmd);
                 }
             }
 
             @Override
             public void onConnectedFailed() {
+                KLog.i(TAG, "onConnectedFailed");
+                requests.removeFirst();
             }
 
             @Override
@@ -92,7 +86,7 @@ public enum TShell {
         return requestStart(">ver", 3000, new CallBack() {
             @Override
             public boolean onCall(String datas) {
-                if (datas.contains("ver"))
+                if (datas.contains("v."))
                     return true;
                 else
                     return false;
@@ -101,13 +95,13 @@ public enum TShell {
     }
 
     private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
-        TShellSimpleRequest request = new TShellSimpleRequest(this, timeOut, cmd);
+        TShellSimpleRequest request = new TShellSimpleRequest(this, callBack, timeOut, cmd);
         requests.add(request);
 
-        if (mSevice.mConnectionState != BluetoothProfile.STATE_CONNECTED)
+        if (mSevice.mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
             mSevice.makeConnection(address, mNotification);
         else
-            request.Start(cmd, callBack);
+            request.Start(cmd);
 
         return request.mSubject;
     }
@@ -122,7 +116,8 @@ public enum TShell {
     public void refreshConnectionTimeout() {
     }
 
-    public Subject<ArrayList<String>> getDevices() {
+    public Subject<ArrayList<String>> getDevices(String[] filters) {
+        mTGattScaner.setFilters(filters);
         return mTGattScaner.getDevices();
     }
 
@@ -156,15 +151,15 @@ public enum TShell {
         public CallBack callBack;
         public String cmd;
 
-        public TShellSimpleRequest(TShell shell, int Timeout, String cmd) {
-            super(shell, Timeout, cmd);
+        public TShellSimpleRequest(TShell shell, CallBack callBack, int Timeout, String cmd) {
+            super(shell, Timeout);
             this.cmd = cmd;
+            this.callBack = callBack;
         }
 
         @Override
-        void Start(String cmd, CallBack callBack, Object[]... args) {
-            this.callBack = callBack;
-            mSevice.write((cmd + "\r\n").getBytes());
+        void Start(String cmd, Object[]... args) {
+            mSevice.write((cmd + " \r\n").getBytes());
         }
 
         @Override

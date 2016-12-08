@@ -322,12 +322,13 @@ public class TService extends Service implements IService {
     public void makeConnection(String address, INotification mINotification) {
         notification = mINotification;
 
-        if (mBluetoothAdapter != null && !TextUtils.isEmpty(address)) {
+        KLog.i(TAG, "address:" + address);
+        if (mBluetoothAdapter != null && ! TextUtils.isEmpty(address)) {
             // TODO:Check if the address is in the gatt source.
             final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
             if (device == null) {
                 KLog.e(TAG, "Device not found.  Unable to connect.");
-                mINotification.onConnectedFailed();
+                notification.onConnectedFailed();
                 return;
             }
 
@@ -336,7 +337,7 @@ public class TService extends Service implements IService {
             if (mBluetoothGatt != null)
                 KLog.e(TAG, "Trying to create a new connection.");
         } else
-            mINotification.onConnectedFailed();
+            notification.onConnectedFailed();
     }
 
     protected class LocalBinder extends Binder {
