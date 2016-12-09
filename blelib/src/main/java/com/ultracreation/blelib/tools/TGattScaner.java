@@ -1,9 +1,15 @@
 package com.ultracreation.blelib.tools;
 
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.text.TextUtils;
-import android.util.Log;
 
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
@@ -12,60 +18,127 @@ import io.reactivex.subjects.Subject;
  * Created by Administrator on 2016/12/4.
  */
 
-class TGattScaner implements IGattScaner {
-    private final static String TAG = TGattScaner.class.getSimpleName();
-    private String[] filters = null;
-    private int timeOut = 0;
-    private ArrayList<String> devices;
-    private ArrayList<Integer> rssis;
-    public Subject<ArrayList<String>> mSubject;
+public enum TGattScaner {
+    Scaner;
 
-    public TGattScaner(){
-        devices = new ArrayList<>();
-        rssis = new ArrayList<>();
+    private BluetoothAdapter mBluetoothAdapter;
+    public Subject<Map<BluetoothDevice, Integer>> mSubject;
+    private int timeoutInterval = 100000;
+    private Map<BluetoothDevice, Integer> devices;
+    private boolean isScanning = false;
+    private Timer timer;
+    private TimerTask timeOutTask;
+
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+            addDevice(device, rssi);
+        }
+    };
+
+    TGattScaner() {
+        devices = new HashMap<>();
         mSubject = PublishSubject.create();
+        refreshTimeout();
     }
 
-    @Override
-    public Subject<ArrayList<String>> getDevices() {
+    public void initBluetooth(Activity activity, BluetoothAdapter mBluetoothAdapter, final int REQUEST_ENABLE_BT) {
+        this.mBluetoothAdapter = mBluetoothAdapter;
+
+        if (! mBluetoothAdapter.isEnabled()) {
+            if (! mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+        }
+    }
+
+    public Subject<Map<BluetoothDevice, Integer>> getDevices() {
         return mSubject;
     }
 
-    @Override
-    public void setFilters(String[] filters) {
-        this.filters = filters;
-    }
-
-    @Override
     public void setTimeOut(int timeOut) {
-        this.timeOut = timeOut;
+        this.timeoutInterval = timeOut;
     }
 
-    @Override
     public void clear() {
         devices.clear();
-        rssis.clear();
     }
 
-    @Override
-    public void addDevice(String address, String name, int rssi) {
-        if (TextUtils.isEmpty(address))
+    public void addDevice(BluetoothDevice device, int rssi) {
+        if (TextUtils.isEmpty(device.getAddress()))
             return;
 
-        if (TextUtils.isEmpty(name))
-            name = "unknown device";
+        devices.put(device, rssi);
+        mSubject.onNext(devices);
+    }
 
-        String device = address + name;
+    void refreshTimeout() {
+        if (mSubject.hasComplete() || mSubject.hasThrowable())
+            return;
 
-        if (! devices.contains(device)) {
-            Log.i(TAG, "not contains." + "bleDeviceAddress=" + address + "  rssi=" + rssi);
-            devices.add(device);
-            rssis.add(rssi);
-        } else {
-            Log.i(TAG, "contains." + "device=" + device + "  rssi=" + rssi);
-            rssis.set(devices.indexOf(device), rssi);
+        clearTimeout();
+
+        if (timeoutInterval == 0)
+            return;
+
+        setTimeout();
+    }
+
+    void error(String message) {
+        if (mSubject.hasObservers()) {
+            mSubject.onError(new Throwable(message));
+            refreshTimeout();
+        }
+    }
+
+    public void start(DeviceCallBack callBack) {
+        if (! isScanning) {
+            isScanning = true;
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+        }
+    }
+
+    public void stop() {
+        isScanning = false;
+        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+    }
+
+    void setTimeout() {
+        if (timer == null)
+            timer = new Timer();
+
+        if (timeOutTask != null)
+            timeOutTask.cancel();
+
+        timeOutTask = null;
+        timeOutTask = new TimerTask() {
+            @Override
+            public void run() {
+                error("time out");
+            }
+        };
+        timer.schedule(timeOutTask, timeoutInterval);
+    }
+
+    void clearTimeout() {
+        if (timeOutTask != null) {
+            timeOutTask.cancel();
+            timeOutTask = null;
         }
 
-        mSubject.onNext(devices);
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+    }
+
+    interface Filter {
+        boolean onCall();
+    }
+
+    interface DeviceCallBack {
+        Map<BluetoothDevice, Integer> onCall();
     }
 }

@@ -8,8 +8,6 @@ import com.ultracreation.blelib.utils.KLog;
 
 import io.reactivex.disposables.Disposable;
 
-import static com.ultracreation.blelib.tools.TShell.instance;
-
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
     Disposable mDisposable;
@@ -18,20 +16,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        instance.bindBluetoothSevice(this);
+        TShell.instance.bindBluetoothSevice(this);
 
-        mDisposable = instance.getDevices().subscribe(devices -> {
+        String[] filters = {"bluetensx", "bluetensq"};
+
+        mDisposable = TShell.instance.getDevices(filters).subscribe(devices -> {
             KLog.i(TAG, devices.get(0).substring(0, 17));
             mDisposable.dispose();
+            TShell.instance.get(devices.get(0).substring(0, 17));
+            TShell.instance.versionRequest().subscribe(
+                    value -> KLog.i(TAG, "ver:"),
+                    error -> KLog.i(TAG, "error:" + error.getMessage())
 
-            Disposable mDisposable = TShell.instance.versionRequest().subscribe(value -> KLog.i(TAG, "ver:"));
-            TShell.instance.disposableMap.put(mDisposable);
+            );
         });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        instance.unBindBluetoothSevice();
+        TShell.instance.unBindBluetoothSevice();
     }
 }
