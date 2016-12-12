@@ -6,11 +6,10 @@ import android.bluetooth.BluetoothDevice;
 import android.content.Intent;
 import android.text.TextUtils;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.reactivex.disposables.Disposable;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -22,9 +21,10 @@ public enum TGattScaner {
     Scaner;
 
     private BluetoothAdapter mBluetoothAdapter;
-    public Subject<Map<BluetoothDevice, Integer>> mSubject;
+    private Subject<BLEDevice> mSubject;
+    private Disposable mDisposable;
+
     private int timeoutInterval = 100000;
-    private Map<BluetoothDevice, Integer> devices;
     private boolean isScanning = false;
     private Timer timer;
     private TimerTask timeOutTask;
@@ -32,46 +32,32 @@ public enum TGattScaner {
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
         public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-            addDevice(device, rssi);
+            if (TextUtils.isEmpty(device.getAddress()))
+                return;
+
+            mSubject.onNext(new BLEDevice(device, rssi));
         }
     };
 
     TGattScaner() {
-        devices = new HashMap<>();
         mSubject = PublishSubject.create();
-        refreshTimeout();
     }
 
     public void initBluetooth(Activity activity, BluetoothAdapter mBluetoothAdapter, final int REQUEST_ENABLE_BT) {
         this.mBluetoothAdapter = mBluetoothAdapter;
 
-        if (! mBluetoothAdapter.isEnabled()) {
-            if (! mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
+        if (activity == null || mBluetoothAdapter == null)
+            error("init ble failed");
+        else if (! mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
-    }
-
-    public Subject<Map<BluetoothDevice, Integer>> getDevices() {
-        return mSubject;
     }
 
     public void setTimeOut(int timeOut) {
         this.timeoutInterval = timeOut;
     }
 
-    public void clear() {
-        devices.clear();
-    }
-
-    public void addDevice(BluetoothDevice device, int rssi) {
-        if (TextUtils.isEmpty(device.getAddress()))
-            return;
-
-        devices.put(device, rssi);
-        mSubject.onNext(devices);
-    }
 
     void refreshTimeout() {
         if (mSubject.hasComplete() || mSubject.hasThrowable())
@@ -88,21 +74,34 @@ public enum TGattScaner {
     void error(String message) {
         if (mSubject.hasObservers()) {
             mSubject.onError(new Throwable(message));
-            refreshTimeout();
+            clearTimeout();
         }
     }
 
-    public void start(DeviceCallBack callBack) {
-        if (! isScanning) {
+    public void start(Filter filter, DeviceCallBack callBack) {
+        refreshTimeout();
+        if (! isScanning && mBluetoothAdapter != null) {
             isScanning = true;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
+            if (mDisposable != null && ! mDisposable.isDisposed())
+                mDisposable = mSubject.subscribe(bleDevice ->
+                {
+                    if (filter.onCall(bleDevice.device.getName()))
+                        callBack.onCall(new BLEDevice(bleDevice.device, bleDevice.rssi));
+                });
         }
     }
 
     public void stop() {
         isScanning = false;
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        if (mBluetoothAdapter != null)
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+
+        if (mDisposable != null && ! mDisposable.isDisposed())
+            mDisposable.dispose();
+
+        clearTimeout();
     }
 
     void setTimeout() {
@@ -116,7 +115,7 @@ public enum TGattScaner {
         timeOutTask = new TimerTask() {
             @Override
             public void run() {
-                error("time out");
+                stop();
             }
         };
         timer.schedule(timeOutTask, timeoutInterval);
@@ -134,11 +133,21 @@ public enum TGattScaner {
         }
     }
 
-    interface Filter {
-        boolean onCall();
+    public interface Filter {
+        boolean onCall(String deviceName);
     }
 
-    interface DeviceCallBack {
-        Map<BluetoothDevice, Integer> onCall();
+    public interface DeviceCallBack {
+        void onCall(BLEDevice device);
+    }
+
+    public class BLEDevice{
+        public BluetoothDevice device;
+        public int rssi;
+
+        public BLEDevice(BluetoothDevice device, int rssi){
+            this.device = device;
+            this.rssi = rssi;
+        }
     }
 }

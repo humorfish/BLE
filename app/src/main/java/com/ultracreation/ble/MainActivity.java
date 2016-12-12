@@ -3,38 +3,42 @@ package com.ultracreation.ble;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
-import com.ultracreation.blelib.tools.TShell;
 import com.ultracreation.blelib.utils.KLog;
 
-import io.reactivex.disposables.Disposable;
+import static com.ultracreation.blelib.tools.TGattScaner.Scaner;
+import static com.ultracreation.blelib.tools.TShell.Shell;
 
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
-    Disposable mDisposable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        TShell.instance.bindBluetoothSevice(this);
+        String[] filters = {".blt", "bluetensx", "bluetensq"};
 
-        String[] filters = {"bluetensx", "bluetensq"};
+        Scaner.start(deviceName ->
+            {
+                if (deviceName != null)
+                    return true;
+                else
+                    return false;
+            }, bleDevice ->
+            {
+                Scaner.stop();
 
-        mDisposable = TShell.instance.getDevices(filters).subscribe(devices -> {
-            KLog.i(TAG, devices.get(0).substring(0, 17));
-            mDisposable.dispose();
-            TShell.instance.get(devices.get(0).substring(0, 17));
-            TShell.instance.versionRequest().subscribe(
-                    value -> KLog.i(TAG, "ver:"),
-                    error -> KLog.i(TAG, "error:" + error.getMessage())
+                Shell.get(bleDevice.device.getAddress());
+                Shell.versionRequest().subscribe(
+                        value -> KLog.i(TAG, "ver:"),
+                        error -> KLog.i(TAG, "error:" + error.getMessage())
 
-            );
-        });
+                );
+            });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        TShell.instance.unBindBluetoothSevice();
+        Shell.unBindBluetoothSevice();
     }
 }

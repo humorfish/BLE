@@ -30,6 +30,8 @@ import com.ultracreation.blelib.utils.XLog;
 import java.util.LinkedList;
 import java.util.UUID;
 
+import static com.ultracreation.blelib.tools.TShell.Shell;
+
 /**
  * Created by you on 2016/12/3.
  */
@@ -100,27 +102,21 @@ public class TService extends Service implements IService {
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicWrite(gatt, characteristic, status);
-            doReadWriteAction(gatt, characteristic);
         }
     };
+
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
         @Override
         public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
             if (device != null) {
-                TShell.instance.addDeivce(device.getAddress(), device.getName(), rssi);
+
             }
         }
     };
+
     private long totalPack = 0;
     private long sendingTimeoutRecord2 = 0;
-
-    private void doReadWriteAction(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-        if (BluetoothProfile.STATE_CONNECTED != mConnectionState) {
-            return;
-        }
-
-    }
 
     @Nullable
     @Override
@@ -238,7 +234,7 @@ public class TService extends Service implements IService {
                     mStringBuilder.append(before);
                     dataQueue.remove();
 
-                    TShell.instance.receiveData(mStringBuilder.toString());
+                    Shell.receiveData(mStringBuilder.toString());
 
                     mStringBuilder.setLength(0);
                     mStringBuilder.append(after);
