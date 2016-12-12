@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import com.ultracreation.blelib.utils.KLog;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 
 import io.reactivex.subjects.Subject;
@@ -21,11 +20,10 @@ import io.reactivex.subjects.Subject;
  */
 
 public enum TShell {
-    instance;
+    Shell;
 
     private final static String TAG = TShell.class.getSimpleName();
     private Context context;
-    private TGattScaner mTGattScaner;
     private TService mSevice;
     private String address;
     private INotification mNotification;
@@ -54,7 +52,6 @@ public enum TShell {
     };
 
     TShell() {
-        mTGattScaner = new TGattScaner();
         requests = new LinkedList<>();
     }
 
@@ -83,19 +80,16 @@ public enum TShell {
     }
 
     public Subject<String> versionRequest() {
-        return requestStart(">ver", 3000, new CallBack() {
-            @Override
-            public boolean onCall(String datas) {
-                if (datas.contains("v."))
-                    return true;
-                else
-                    return false;
-            }
+        return requestStart(">ver", 3000, datas -> {
+            if (datas.contains("v."))
+                return true;
+            else
+                return false;
         });
     }
 
     private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
-        TShellSimpleRequest request = new TShellSimpleRequest(this, callBack, timeOut, cmd);
+        TShellSimpleRequest request = new TShellSimpleRequest(callBack, timeOut, cmd);
         requests.add(request);
 
         if (mSevice.mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
@@ -116,19 +110,10 @@ public enum TShell {
     public void refreshConnectionTimeout() {
     }
 
-    public Subject<ArrayList<String>> getDevices(String[] filters) {
-        mTGattScaner.setFilters(filters);
-        return mTGattScaner.getDevices();
-    }
-
-    public void addDeivce(String address, String name, int rssi) {
-        mTGattScaner.addDevice(address, name, rssi);
-    }
-
     public boolean bindBluetoothSevice(Context mContext) {
         this.context = mContext;
 
-        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+        if (! context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(context, "ble not support", Toast.LENGTH_SHORT).show();
             System.exit(0);
         }
@@ -151,8 +136,9 @@ public enum TShell {
         public CallBack callBack;
         public String cmd;
 
-        public TShellSimpleRequest(TShell shell, CallBack callBack, int Timeout, String cmd) {
-            super(shell, Timeout);
+
+        public TShellSimpleRequest(CallBack callBack, int Timeout, String cmd) {
+            super(Timeout);
             this.cmd = cmd;
             this.callBack = callBack;
         }

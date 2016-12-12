@@ -8,20 +8,20 @@ import java.util.TimerTask;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
+import static com.ultracreation.blelib.tools.TShell.Shell;
+
 /**
  * Created by you on 2016/12/7.
  */
 abstract class TShellRequest{
     private final String TAG = "TShellRequest";
 
-    protected TShell shell;
     protected int TimeoutInterval;
     private Timer timer;
     private TimerTask timeOutTask;
     protected Subject<String> mSubject;
 
-    public TShellRequest(TShell shell, int Timeout) {
-        this.shell = shell;
+    public TShellRequest(int Timeout) {
         TimeoutInterval = Timeout;
         mSubject = PublishSubject.create();
         refreshTimeout();
@@ -39,7 +39,7 @@ abstract class TShellRequest{
             return;
 
         // also delay Connection Timeout
-        shell.refreshConnectionTimeout();
+        Shell.refreshConnectionTimeout();
 
         clearTimeout();
 
