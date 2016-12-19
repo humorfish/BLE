@@ -30,7 +30,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
 import android.text.TextUtils;
 import android.util.Log;
@@ -39,7 +38,6 @@ import com.ultracreation.blelib.bean.GattDataSource;
 import com.ultracreation.blelib.bean.NewDeviceDataSource;
 import com.ultracreation.blelib.bean.SampleGattAttributes;
 import com.ultracreation.blelib.impl.BodyTonerCmdFormaterListener;
-import com.ultracreation.blelib.tools.TShell;
 import com.ultracreation.blelib.utils.BodyTonerCmdFormater;
 import com.ultracreation.blelib.utils.KLog;
 import com.ultracreation.blelib.utils.XBluetoothGatt;
@@ -85,24 +83,15 @@ public class BluetoothLeService extends Service {
      */
     private String mCurAddress = null;
     /**
-     * The handler for the start/stop scan.
-     */
-    private Handler mScanHandler = null;
-    /**
      * Bluetooth Gatt map container.
      */
     private GattDataSource mGattSrc = GattDataSource.defaultSrc();
 
 
     // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-
-        @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi,
-                             byte[] scanRecord) {
-            if (device != null) {
-                TShell.instance.addDeivce(device.getAddress(), device.getName(), rssi);
-            }
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = (device, rssi, scanRecord) -> {
+        if (device != null) {
+            //Shell.addDeivce(device.getAddress(), device.getName(), rssi);
         }
     };
 
@@ -267,7 +256,6 @@ public class BluetoothLeService extends Service {
             return false;
         }
 
-        mScanHandler = new Handler();
         btFormatter.registerListener(new DataListenter());
         return true;
     }

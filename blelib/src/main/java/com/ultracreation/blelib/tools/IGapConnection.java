@@ -6,9 +6,10 @@ package com.ultracreation.blelib.tools;
 
 public abstract class IGapConnection
 {
-    String DeviceId;
+    String deviceId;
 
     abstract void Disconnect();
+    abstract boolean isConnected();
     abstract void SetTimeout(int Timeout, CallBack callBack);
     abstract void RefreshTimeout();
 
@@ -16,8 +17,6 @@ public abstract class IGapConnection
     abstract void Write(String Service, String Characteristic, byte[] buf);
     abstract void WriteNoResponse(String Service, String Characteristic, byte[] buf);
 
-    TCharacteristicStream StartNotification(String Service, String Characteristic,
-                      CharacteristicStreamType?: ClassConstructor<TCharacteristicStream>)
     abstract void StopNotification(String Service, String Characteristic);
 
     abstract void NotificationDisconnect();
