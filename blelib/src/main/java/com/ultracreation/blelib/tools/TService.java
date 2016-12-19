@@ -106,12 +106,9 @@ public class TService extends Service implements IService {
     };
 
     // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
-        @Override
-        public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
-            if (device != null) {
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = (device, rssi, scanRecord) -> {
+        if (device != null) {
 
-            }
         }
     };
 

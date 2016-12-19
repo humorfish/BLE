@@ -1,6 +1,5 @@
 package com.ultracreation.blelib.tools;
 
-import android.bluetooth.BluetoothProfile;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -26,7 +25,9 @@ public enum TShell {
     private Context context;
     private TService mSevice;
     private String address;
+    private TGapConnection connection;
     private INotification mNotification;
+
     private LinkedList<TShellSimpleRequest> requests;
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -53,30 +54,30 @@ public enum TShell {
 
     TShell() {
         requests = new LinkedList<>();
+        initNotification();
     }
 
-    public void get(String address) {
-        this.address = address;
+    private void initNotification() {
         mNotification = new INotification() {
             @Override
             public void onConnected() {
-                if (requests.size() > 0) {
-                    TShellSimpleRequest request = requests.peekFirst();
-                    request.Start(request.cmd);
-                }
+
             }
 
             @Override
             public void onConnectedFailed() {
-                KLog.i(TAG, "onConnectedFailed");
-                requests.removeFirst();
+
             }
 
             @Override
             public void onDisconnected() {
-                requests.clear();
+
             }
         };
+    }
+
+    public void get(String address) {
+        this.address = address;
     }
 
     public Subject<String> versionRequest() {
@@ -88,16 +89,29 @@ public enum TShell {
         });
     }
 
+    public void PromiseSend(){
+        this.makeConnection();
+    }
+
     private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
         TShellSimpleRequest request = new TShellSimpleRequest(callBack, timeOut, cmd);
         requests.add(request);
 
-        if (mSevice.mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
-            mSevice.makeConnection(address, mNotification);
+        if (connection == null)
+            makeConnection();
         else
             request.Start(cmd);
 
         return request.mSubject;
+    }
+
+    public TGapConnection makeConnection() {
+        if (connection != null && connection.isConnected())
+            return connection;
+        else {
+            connection = new TGapConnection(address, mSevice, mNotification);
+            return connection;
+        }
     }
 
     public void receiveData(String line) {
