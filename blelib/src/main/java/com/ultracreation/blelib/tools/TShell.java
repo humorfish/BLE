@@ -54,27 +54,8 @@ public enum TShell {
 
     TShell() {
         requests = new LinkedList<>();
-        initNotification();
     }
 
-    private void initNotification() {
-        mNotification = new INotification() {
-            @Override
-            public void onConnected() {
-
-            }
-
-            @Override
-            public void onConnectedFailed() {
-
-            }
-
-            @Override
-            public void onDisconnected() {
-
-            }
-        };
-    }
 
     public void get(String address) {
         this.address = address;
@@ -89,8 +70,31 @@ public enum TShell {
         });
     }
 
-    public void PromiseSend(){
-        this.makeConnection();
+    public void PromiseSend() {
+        this.makeConnection(new INotification() {
+            @Override
+            public void onConnected() {
+
+            }
+
+            @Override
+            public void onConnectedFailed() {
+
+            }
+
+            @Override
+            public void onDisconnected() {
+
+            }
+
+            @Override
+            public void onReceiveData(String Line) {
+                if (requests.size() > 0) {
+                    requests.peekFirst().Notification(Line);
+                    requests.removeFirst();
+                }
+            }
+        });
     }
 
     private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
@@ -98,14 +102,14 @@ public enum TShell {
         requests.add(request);
 
         if (connection == null)
-            makeConnection();
+            PromiseSend();
         else
             request.Start(cmd);
 
         return request.mSubject;
     }
 
-    public TGapConnection makeConnection() {
+    public TGapConnection makeConnection(INotification mNotification) {
         if (connection != null && connection.isConnected())
             return connection;
         else {
@@ -114,14 +118,11 @@ public enum TShell {
         }
     }
 
-    public void receiveData(String line) {
-        if (requests.size() > 0) {
-            requests.peekFirst().Notification(line);
-            requests.removeFirst();
-        }
-    }
 
     public void refreshConnectionTimeout() {
+    }
+
+    public void clearConnectTimeOut() {
     }
 
     public boolean bindBluetoothSevice(Context mContext) {
@@ -139,6 +140,7 @@ public enum TShell {
     public void unBindBluetoothSevice() {
         context.unbindService(mServiceConnection);
     }
+
 
     /* TShellSimpleRequest */
 
@@ -159,7 +161,7 @@ public enum TShell {
 
         @Override
         void Start(String cmd, Object[]... args) {
-            mSevice.write((cmd + " \r\n").getBytes());
+            connection.write(cmd);
         }
 
         @Override
