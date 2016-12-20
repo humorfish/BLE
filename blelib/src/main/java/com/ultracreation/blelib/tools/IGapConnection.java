@@ -8,17 +8,12 @@ public abstract class IGapConnection
 {
     String deviceId;
 
-    abstract void Disconnect();
+    abstract void connect();
+    abstract void disconnect();
     abstract boolean isConnected();
-    abstract void SetTimeout(int Timeout, CallBack callBack);
-    abstract void RefreshTimeout();
+    abstract void setTimeout(int Timeout, CallBack callBack);
+    abstract void refreshTimeout();
 
-    abstract byte[] Read(String Service, String Characteristic);
-    abstract void Write(String Service, String Characteristic, byte[] buf);
-    abstract void WriteNoResponse(String Service, String Characteristic, byte[] buf);
-
-    abstract void StopNotification(String Service, String Characteristic);
-
-    abstract void NotificationDisconnect();
-    abstract void NotificationError(Object err);
+    abstract void write(String cmd);
+    abstract void writeNoResponse(byte[] buf);
 }

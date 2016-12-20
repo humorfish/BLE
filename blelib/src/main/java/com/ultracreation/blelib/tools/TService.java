@@ -30,8 +30,6 @@ import com.ultracreation.blelib.utils.XLog;
 import java.util.LinkedList;
 import java.util.UUID;
 
-import static com.ultracreation.blelib.tools.TShell.Shell;
-
 /**
  * Created by you on 2016/12/3.
  */
@@ -231,7 +229,8 @@ public class TService extends Service implements IService {
                     mStringBuilder.append(before);
                     dataQueue.remove();
 
-                    Shell.receiveData(mStringBuilder.toString());
+                    if (notification != null)
+                        notification.onReceiveData(mStringBuilder.toString());
 
                     mStringBuilder.setLength(0);
                     mStringBuilder.append(after);
@@ -241,7 +240,7 @@ public class TService extends Service implements IService {
         }
     }
 
-    public boolean writeDataDirect(BluetoothGattCharacteristic characteristic, byte[] data, int packWaitTime) {
+    private boolean writeDataDirect(BluetoothGattCharacteristic characteristic, byte[] data, int packWaitTime) {
         if (mBluetoothGatt == null)
             return false;
 

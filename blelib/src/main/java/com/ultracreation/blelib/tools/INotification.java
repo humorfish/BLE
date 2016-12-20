@@ -8,4 +8,6 @@ public interface INotification{
     void onConnected();
     void onConnectedFailed();
     void onDisconnected();
+    void onReceiveData(String Line);
+
 }
