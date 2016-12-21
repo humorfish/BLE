@@ -12,8 +12,6 @@ import com.ultracreation.blelib.utils.KLog;
 
 import java.util.LinkedList;
 
-import io.reactivex.subjects.Subject;
-
 /**
  * Created by Administrator on 2016/11/28.
  */
@@ -26,7 +24,6 @@ public enum TShell {
     private TService mSevice;
     private String address;
     private TGapConnection connection;
-    private INotification mNotification;
 
     private LinkedList<TShellSimpleRequest> requests;
 
@@ -42,8 +39,6 @@ public enum TShell {
                 KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
                 System.exit(0);
             }
-
-            mSevice.scanDevice(true);
         }
 
         @Override
@@ -61,30 +56,30 @@ public enum TShell {
         this.address = address;
     }
 
-    public Subject<String> versionRequest() {
-        return requestStart(">ver", 3000, datas -> {
+    public void versionRequest(TShellRequest.RequestListener listener) {
+        requestStart(">ver", 3000, datas -> {
             if (datas.contains("v."))
                 return true;
             else
                 return false;
-        });
+        }, listener);
     }
 
-    public void PromiseSend() {
+    private void PromiseSend(TShellSimpleRequest request, String cmd) {
         this.makeConnection(new INotification() {
             @Override
             public void onConnected() {
-
+                request.Start(cmd);
             }
 
             @Override
             public void onConnectedFailed() {
-
+                connection = null;
             }
 
             @Override
             public void onDisconnected() {
-
+                connection = null;
             }
 
             @Override
@@ -97,16 +92,16 @@ public enum TShell {
         });
     }
 
-    private Subject<String> requestStart(String cmd, int timeOut, CallBack callBack) {
+    private void requestStart(String cmd, int timeOut, CallBack callBack, TShellRequest.RequestListener listener) {
         TShellSimpleRequest request = new TShellSimpleRequest(callBack, timeOut, cmd);
         requests.add(request);
 
         if (connection == null)
-            PromiseSend();
+            PromiseSend(request, cmd);
         else
             request.Start(cmd);
 
-        return request.mSubject;
+        request.mSubject.subscribe(value -> listener.onSuccessful(value), err -> listener.onFailed(err.getMessage()));
     }
 
     public TGapConnection makeConnection(INotification mNotification) {

@@ -10,4 +10,9 @@ interface IService {
     void write(byte[] datas);
     void makeConnection(String address, INotification mINotification);
     void disconnect();
+
+    void onConnected();
+    void onConnectedFailed();
+    void onDisconnected();
+    void onReceiveData(String Line);
 }

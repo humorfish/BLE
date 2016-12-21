@@ -90,7 +90,8 @@ public enum TGattScaner {
                 ).subscribe(bleDevice1 -> {
                     callBack.onCall(bleDevice1);
                 });
-        }
+        } else
+             throw new IllegalArgumentException();
     }
 
     public void stop() {

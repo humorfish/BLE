@@ -9,5 +9,4 @@ public interface INotification{
     void onConnectedFailed();
     void onDisconnected();
     void onReceiveData(String Line);
-
 }

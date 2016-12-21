@@ -57,8 +57,7 @@ public class TService extends Service implements IService {
                 gatt.close();
 
                 mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
-                if (notification != null)
-                    notification.onDisconnected();
+                onDisconnected();
             }
         }
 
@@ -77,8 +76,6 @@ public class TService extends Service implements IService {
             if (BluetoothGatt.GATT_SUCCESS == status) {
                 KLog.v(TAG, "Callback: Wrote GATT Descriptor successfully.");
                 mConnectionState = BluetoothProfile.STATE_CONNECTED;
-                if (notification != null)
-                    notification.onConnected();
             } else
                 KLog.v(TAG, "Callback: Error writing GATT Descriptor: " + status);
         }
@@ -229,8 +226,7 @@ public class TService extends Service implements IService {
                     mStringBuilder.append(before);
                     dataQueue.remove();
 
-                    if (notification != null)
-                        notification.onReceiveData(mStringBuilder.toString());
+                    onReceiveData(mStringBuilder.toString());
 
                     mStringBuilder.setLength(0);
                     mStringBuilder.append(after);
@@ -311,8 +307,36 @@ public class TService extends Service implements IService {
     }
 
     @Override
+    public void onConnected() {
+        scanDevice(false);
+        if (notification != null)
+            notification.onConnected();
+    }
+
+    @Override
+    public void onConnectedFailed() {
+        scanDevice(false);
+        if (notification != null)
+            notification.onConnectedFailed();
+    }
+
+    @Override
+    public void onDisconnected() {
+        scanDevice(false);
+        if (notification != null)
+            notification.onDisconnected();
+    }
+
+    @Override
+    public void onReceiveData(String Line){
+        if (notification != null)
+            notification.onDisconnected();
+    }
+
+    @Override
     public void makeConnection(String address, INotification mINotification) {
         notification = mINotification;
+        scanDevice(true);
 
         KLog.i(TAG, "address:" + address);
         if (mBluetoothAdapter != null && ! TextUtils.isEmpty(address)) {
@@ -320,16 +344,15 @@ public class TService extends Service implements IService {
             final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
             if (device == null) {
                 KLog.e(TAG, "Device not found.  Unable to connect.");
-                notification.onConnectedFailed();
+                this.onConnectedFailed();
                 return;
             }
 
             mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
-
             if (mBluetoothGatt != null)
                 KLog.e(TAG, "Trying to create a new connection.");
         } else
-            notification.onConnectedFailed();
+            this.onConnectedFailed();
     }
 
     protected class LocalBinder extends Binder {

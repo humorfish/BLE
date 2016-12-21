@@ -13,7 +13,7 @@ import static com.ultracreation.blelib.tools.TShell.Shell;
 /**
  * Created by you on 2016/12/7.
  */
-abstract class TShellRequest{
+public abstract class TShellRequest{
     private final String TAG = "TShellRequest";
 
     protected int TimeoutInterval;
@@ -100,5 +100,10 @@ abstract class TShellRequest{
             timer.cancel();
             timer = null;
         }
+    }
+
+    public interface RequestListener {
+        void onSuccessful(String value);
+        void onFailed(String err);
     }
 }
