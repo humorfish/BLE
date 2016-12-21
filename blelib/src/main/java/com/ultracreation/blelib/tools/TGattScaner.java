@@ -85,10 +85,10 @@ public enum TGattScaner {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
             if (mDisposable != null && ! mDisposable.isDisposed())
-                mDisposable = mSubject.subscribe(bleDevice ->
-                {
-                    if (filter.onCall(bleDevice.device.getName()))
-                        callBack.onCall(new BLEDevice(bleDevice.device, bleDevice.rssi));
+                mDisposable = mSubject.filter(bleDevice ->
+                    filter.onCall(bleDevice.device.getName())
+                ).subscribe(bleDevice1 -> {
+                    callBack.onCall(bleDevice1);
                 });
         }
     }
@@ -108,10 +108,11 @@ public enum TGattScaner {
         if (timer == null)
             timer = new Timer();
 
-        if (timeOutTask != null)
+        if (timeOutTask != null) {
             timeOutTask.cancel();
+            timeOutTask = null;
+        }
 
-        timeOutTask = null;
         timeOutTask = new TimerTask() {
             @Override
             public void run() {

@@ -47,9 +47,17 @@ Temporary Items
 .apdisk
 
 .gradle
-.gradle/
+.gradle/*
 .idea
-.idea/
+.idea/*
+
 build
-build/
+build/*
+
+.gradle/2.10/taskArtifacts/cache.properties
 .idea/workspace.xml
+BLE.iml
+blelib/blelib.iml
+blelib/build.gradle
+local.properties
+app/app.iml
