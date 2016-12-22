@@ -47,17 +47,10 @@ Temporary Items
 .apdisk
 
 .gradle
-.gradle/*
+/local.properties
+.DS_Store # only needed under mac os
+/build
+/captures
+*.iml
 .idea
-.idea/*
-
-build
-build/*
-
-.gradle/2.10/taskArtifacts/cache.properties
-.idea/workspace.xml
-BLE.iml
-blelib/blelib.iml
-blelib/build.gradle
-local.properties
-app/app.iml
+*.apk #optional

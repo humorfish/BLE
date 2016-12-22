@@ -16,10 +16,12 @@ import java.util.LinkedList;
  * Created by Administrator on 2016/11/28.
  */
 
-public enum TShell {
+public enum TShell
+{
     Shell;
 
     private final static String TAG = TShell.class.getSimpleName();
+    private boolean isBindService = false;
     private Context context;
     private TService mSevice;
     private String address;
@@ -27,64 +29,74 @@ public enum TShell {
 
     private LinkedList<TShellSimpleRequest> requests;
 
-    private ServiceConnection mServiceConnection = new ServiceConnection() {
+    private ServiceConnection mServiceConnection = new ServiceConnection()
+    {
         @Override
-        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
-            if (iBinder == null) {
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder)
+        {
+            if (iBinder == null)
+            {
                 throw new Error("bind server failed!!");
             }
 
             mSevice = ((TService.LocalBinder) iBinder).getService();
-            if (!mSevice.initialize()) {
+            if (!mSevice.initialize())
+            {
                 KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
                 System.exit(0);
             }
         }
 
         @Override
-        public void onServiceDisconnected(ComponentName componentName) {
+        public void onServiceDisconnected(ComponentName componentName)
+        {
             mSevice = null;
         }
     };
 
-    TShell() {
+    TShell()
+    {
         requests = new LinkedList<>();
     }
 
 
-    public void get(String address) {
+    public void get(String address)
+    {
         this.address = address;
     }
 
-    public void versionRequest(TShellRequest.RequestListener listener) {
-        requestStart(">ver", 3000, datas -> {
-            if (datas.contains("v."))
-                return true;
-            else
-                return false;
-        }, listener);
+    public void versionRequest(TShellRequest.RequestListener listener)
+    {
+        requestStart(">ver", 10000, datas -> datas.contains("v."), listener);
     }
 
-    private void PromiseSend(TShellSimpleRequest request, String cmd) {
-        this.makeConnection(new INotification() {
+    private void PromiseSend(TShellSimpleRequest request, String cmd)
+    {
+        this.makeConnection(new INotification()
+        {
             @Override
-            public void onConnected() {
+            public void onConnected()
+            {
                 request.Start(cmd);
             }
 
             @Override
-            public void onConnectedFailed() {
+            public void onConnectedFailed()
+            {
                 connection = null;
             }
 
             @Override
-            public void onDisconnected() {
+            public void onDisconnected()
+            {
                 connection = null;
             }
 
             @Override
-            public void onReceiveData(String Line) {
-                if (requests.size() > 0) {
+            public void onReceiveData(String Line)
+            {
+                if (requests.size() > 0)
+                {
                     requests.peekFirst().Notification(Line);
                     requests.removeFirst();
                 }
@@ -92,7 +104,8 @@ public enum TShell {
         });
     }
 
-    private void requestStart(String cmd, int timeOut, CallBack callBack, TShellRequest.RequestListener listener) {
+    private void requestStart(String cmd, int timeOut, CallBack callBack, TShellRequest.RequestListener listener)
+    {
         TShellSimpleRequest request = new TShellSimpleRequest(callBack, timeOut, cmd);
         requests.add(request);
 
@@ -101,39 +114,50 @@ public enum TShell {
         else
             request.Start(cmd);
 
-        request.mSubject.subscribe(value -> listener.onSuccessful(value), err -> listener.onFailed(err.getMessage()));
+        request.mSubject.subscribe(listener::onSuccessful, err -> listener.onFailed(err.getMessage()));
     }
 
-    public TGapConnection makeConnection(INotification mNotification) {
+    public TGapConnection makeConnection(INotification mNotification)
+    {
         if (connection != null && connection.isConnected())
             return connection;
-        else {
+        else
+        {
             connection = new TGapConnection(address, mSevice, mNotification);
             return connection;
         }
     }
 
 
-    public void refreshConnectionTimeout() {
+    public void refreshConnectionTimeout()
+    {
     }
 
-    public void clearConnectTimeOut() {
+    public void clearConnectTimeOut()
+    {
     }
 
-    public boolean bindBluetoothSevice(Context mContext) {
+    public boolean bindBluetoothSevice(Context mContext)
+    {
         this.context = mContext;
 
-        if (! context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
+        {
             Toast.makeText(context, "ble not support", Toast.LENGTH_SHORT).show();
             System.exit(0);
         }
 
         Intent gattServiceIntent = new Intent(context, TService.class);
-        return context.bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
+        isBindService = context.bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
+        KLog.i(TAG, "bindBluetoothSevice.isBindService:" + isBindService);
+        return isBindService;
     }
 
-    public void unBindBluetoothSevice() {
-        context.unbindService(mServiceConnection);
+    public void unBindBluetoothSevice()
+    {
+        KLog.i(TAG, "bindBluetoothSevice.isBindService:" + isBindService);
+        if (isBindService)
+            context.unbindService(mServiceConnection);
     }
 
 
@@ -143,25 +167,30 @@ public enum TShell {
      * the request narrow to 1 ack 1 answer simple request, most cases toPromise
      */
 
-    class TShellSimpleRequest extends TShellRequest {
+    class TShellSimpleRequest extends TShellRequest
+    {
         public CallBack callBack;
         public String cmd;
 
 
-        public TShellSimpleRequest(CallBack callBack, int Timeout, String cmd) {
+        public TShellSimpleRequest(CallBack callBack, int Timeout, String cmd)
+        {
             super(Timeout);
             this.cmd = cmd;
             this.callBack = callBack;
         }
 
         @Override
-        void Start(String cmd, Object[]... args) {
+        void Start(String cmd, Object[]... args)
+        {
             connection.write(cmd);
         }
 
         @Override
-        void Notification(String line) {
-            if (callBack.onCall(line)) {
+        void Notification(String line)
+        {
+            if (callBack.onCall(line))
+            {
                 next(line);
                 complete();
             }
