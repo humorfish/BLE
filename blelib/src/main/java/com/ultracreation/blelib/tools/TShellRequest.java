@@ -8,8 +8,6 @@ import java.util.TimerTask;
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
-import static com.ultracreation.blelib.tools.TShell.Shell;
-
 /**
  * Created by you on 2016/12/7.
  */
@@ -30,19 +28,16 @@ public abstract class TShellRequest
     }
 
     /* called by TShell.RequestStart */
-    abstract void Start(String Cmd, Object[]... args);
+    abstract void start(String Cmd, Object[]... args);
 
     /* called by TShell */
-    abstract void Notification(String Line);
+    abstract void onNotification(String Line);
 
     void refreshTimeout()
     {
         KLog.i(TAG, "refreshTimeout.hasObservers:" + mSubject.hasObservers());
         if (mSubject.hasComplete() || mSubject.hasThrowable())
             return;
-
-        // also delay Connection Timeout
-        Shell.refreshConnectionTimeout();
 
         clearTimeout();
 

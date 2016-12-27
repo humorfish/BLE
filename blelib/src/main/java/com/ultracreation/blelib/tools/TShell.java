@@ -11,6 +11,8 @@ import android.widget.Toast;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.LinkedList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 /**
  * Created by Administrator on 2016/11/28.
@@ -21,12 +23,15 @@ public enum TShell
     Shell;
 
     private final static String TAG = TShell.class.getSimpleName();
+    private int connectTimeOut = 10000;
+    private int requestTimeOut = 3000;
+
     private boolean isBindService = false;
     private Context context;
     private TService mSevice;
     private String address;
     private TGapConnection connection;
-
+    private TimeOutManager timeOutManager;
     private LinkedList<TShellSimpleRequest> requests;
 
     private ServiceConnection mServiceConnection = new ServiceConnection()
@@ -40,7 +45,7 @@ public enum TShell
             }
 
             mSevice = ((TService.LocalBinder) iBinder).getService();
-            if (!mSevice.initialize())
+            if (! mSevice.initialize())
             {
                 KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
                 System.exit(0);
@@ -57,8 +62,8 @@ public enum TShell
     TShell()
     {
         requests = new LinkedList<>();
+        timeOutManager = new TimeOutManager();
     }
-
 
     public void get(String address)
     {
@@ -67,17 +72,21 @@ public enum TShell
 
     public void versionRequest(TShellRequest.RequestListener listener)
     {
-        requestStart(">ver", 10000, datas -> datas.contains("v."), listener);
+        requestStart(">ver", requestTimeOut, datas -> datas.contains("v."), listener);
     }
 
-    private void PromiseSend(TShellSimpleRequest request, String cmd)
+    private void connect(TShellSimpleRequest request, String cmd)
     {
+        timeOutManager.startConnectTimeOut(connectTimeOut, message -> KLog.i(TAG, "" + message));
+
         this.makeConnection(new INotification()
         {
             @Override
             public void onConnected()
             {
-                request.Start(cmd);
+                timeOutManager.clearTimeOut();
+                timeOutManager.startQuestTimeOut(request.TimeoutInterval, message -> KLog.i(TAG, "" + message));
+                request.start(cmd);
             }
 
             @Override
@@ -97,8 +106,13 @@ public enum TShell
             {
                 if (requests.size() > 0)
                 {
-                    requests.peekFirst().Notification(Line);
+                    requests.peekFirst().onNotification(Line);
                     requests.removeFirst();
+
+                    if (timeOutManager.timeOutList.size() > 0)
+                    {
+                        timeOutManager.removeTimeOut();
+                    }
                 }
             }
         });
@@ -110,9 +124,9 @@ public enum TShell
         requests.add(request);
 
         if (connection == null)
-            PromiseSend(request, cmd);
+            connect(request, cmd);
         else
-            request.Start(cmd);
+            request.start(cmd);
 
         request.mSubject.subscribe(listener::onSuccessful, err -> listener.onFailed(err.getMessage()));
     }
@@ -128,14 +142,6 @@ public enum TShell
         }
     }
 
-
-    public void refreshConnectionTimeout()
-    {
-    }
-
-    public void clearConnectTimeOut()
-    {
-    }
 
     public boolean bindBluetoothSevice(Context mContext)
     {
@@ -167,7 +173,7 @@ public enum TShell
      * the request narrow to 1 ack 1 answer simple request, most cases toPromise
      */
 
-    class TShellSimpleRequest extends TShellRequest
+    private class TShellSimpleRequest extends TShellRequest
     {
         public CallBack callBack;
         public String cmd;
@@ -181,13 +187,13 @@ public enum TShell
         }
 
         @Override
-        void Start(String cmd, Object[]... args)
+        void start(String cmd, Object[]... args)
         {
             connection.write(cmd);
         }
 
         @Override
-        void Notification(String line)
+        void onNotification(String line)
         {
             if (callBack.onCall(line))
             {
@@ -196,4 +202,70 @@ public enum TShell
             }
         }
     }
+
+    class TimeOutManager implements ITimeOutManager
+    {
+        private Timer timer;
+        private TimerTask timerTask;
+        private LinkedList<ITimeOutCallBack> timeOutList;
+
+        public TimeOutManager()
+        {
+            timeOutList = new LinkedList<>();
+        }
+
+        @Override
+        public void startConnectTimeOut(int timeOut, ITimeOutCallBack callBack)
+        {
+            setTimeOut(timeOut, callBack);
+        }
+
+        @Override
+        public void startQuestTimeOut(int timeOut, ITimeOutCallBack callBack)
+        {
+            setTimeOut(timeOut, callBack);
+        }
+
+        @Override
+        public void setTimeOut(int timeOut, ITimeOutCallBack callBack)
+        {
+            timeOutList.add(callBack);
+            timer = new Timer();
+            timerTask = new TimerTask()
+            {
+                @Override
+                public void run()
+                {
+                    timeOutList.peekFirst().onCall("time out");
+                    timeOutList.removeFirst();
+                }
+            };
+
+            timer.schedule(timerTask, timeOut);
+        }
+
+        @Override
+        public void clearTimeOut()
+        {
+            if (timerTask != null)
+            {
+                timerTask.cancel();
+                timerTask = null;
+            }
+
+            if (timer != null)
+            {
+                timer.cancel();
+                timer = null;
+            }
+        }
+
+        @Override
+        public void removeTimeOut()
+        {
+            if (timeOutList.size() > 0)
+                timeOutList.removeFirst();
+        }
+    }
+
 }
