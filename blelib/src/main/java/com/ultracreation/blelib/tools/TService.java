@@ -82,8 +82,7 @@ public class TService extends Service implements IService
         }
 
         @Override
-        public void onDescriptorWrite(BluetoothGatt gatt,
-                                      BluetoothGattDescriptor descriptor, int status)
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status)
         {
             if (BluetoothGatt.GATT_SUCCESS == status)
             {
@@ -97,16 +96,17 @@ public class TService extends Service implements IService
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status)
         {
             super.onCharacteristicRead(gatt, characteristic, status);
+
+            KLog.i(TAG, "onCharacteristicRead");
             if (status == BluetoothGatt.GATT_SUCCESS)
-            {
                 doCharacteristicDataDispatch(characteristic);
-            }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
         {
             super.onCharacteristicChanged(gatt, characteristic);
+            KLog.i(TAG, "onCharacteristicChanged");
             doCharacteristicDataDispatch(characteristic);
         }
 
@@ -116,6 +116,7 @@ public class TService extends Service implements IService
             super.onCharacteristicWrite(gatt, characteristic, status);
         }
     };
+
     private long totalPack = 0;
     private long sendingTimeoutRecord2 = 0;
 
@@ -132,6 +133,7 @@ public class TService extends Service implements IService
         KLog.i(TAG, "onUnbind");
 
         disconnect();
+        stopSelf();
         return super.onUnbind(intent);
     }
 
@@ -242,8 +244,8 @@ public class TService extends Service implements IService
 
         if (characteristicUuid.equals(SampleGattAttributes.BODY_TONER_BOLUTEK))
         {
-            String tmp = mStringBuilder.toString();
-            if (!TextUtils.isEmpty(tmp))
+            String tmp = new String(rawData);
+            if (! TextUtils.isEmpty(tmp))
             {
                 int index = tmp.indexOf("\r\n");
                 KLog.i(TAG, "data:" + tmp.replace("\r\n", "") + "  index:" + index);

@@ -20,7 +20,6 @@ public class MainActivity extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        TShell.Shell.bindBluetoothSevice(this);
 
         String[] filters = {".blt", "bluetensx", "bluetensq"};
         TGattScaner.Scaner.initBluetooth(this, REQUEST_ENABLE_BT);
@@ -72,6 +71,5 @@ public class MainActivity extends AppCompatActivity
     protected void onDestroy()
     {
         super.onDestroy();
-        TShell.Shell.unBindBluetoothSevice();
     }
 }
