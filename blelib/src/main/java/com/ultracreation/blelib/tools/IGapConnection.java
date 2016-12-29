@@ -11,8 +11,6 @@ public abstract class IGapConnection
     abstract void connect();
     abstract void disconnect();
     abstract boolean isConnected();
-    abstract void setTimeout(int Timeout, CallBack callBack);
-    abstract void refreshTimeout();
 
     abstract void write(String cmd);
     abstract void writeNoResponse(byte[] buf);

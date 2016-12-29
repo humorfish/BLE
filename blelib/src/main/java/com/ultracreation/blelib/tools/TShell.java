@@ -24,7 +24,7 @@ public enum TShell
 
     private final static String TAG = TShell.class.getSimpleName();
     private int connectTimeOut = 10000;
-    private int requestTimeOut = 3000;
+    private int requestTimeOut = 6000;
 
     private boolean isBindService = false;
     private Context context;
@@ -45,7 +45,7 @@ public enum TShell
             }
 
             mSevice = ((TService.LocalBinder) iBinder).getService();
-            if (! mSevice.initialize())
+            if (!mSevice.initialize())
             {
                 KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
                 System.exit(0);
@@ -75,17 +75,37 @@ public enum TShell
         requestStart(">ver", requestTimeOut, datas -> datas.contains("v."), listener);
     }
 
+    private void requestStart(String cmd, int timeOut, RequestCallBack requestCallBack, TShellRequest.RequestListener listener)
+    {
+        TShellSimpleRequest request = new TShellSimpleRequest(requestCallBack, timeOut);
+        requests.add(request);
+
+        if (connection == null)
+            connect(request, cmd);
+        else
+            request.start(cmd);
+
+        request.mSubject.subscribe(listener::onSuccessful, err -> listener.onFailed(err.getMessage()));
+    }
+
     private void connect(TShellSimpleRequest request, String cmd)
     {
-        timeOutManager.startConnectTimeOut(connectTimeOut, message -> KLog.i(TAG, "" + message));
+        if (connection != null)
+            return;
 
-        this.makeConnection(new INotification()
+        timeOutManager.startConnectTimeOut(connectTimeOut, message -> KLog.i(TAG, "" + message));
+        connection = new TGapConnection(address, mSevice, new INotification()
         {
             @Override
             public void onConnected()
             {
                 timeOutManager.clearTimeOut();
-                timeOutManager.startQuestTimeOut(request.TimeoutInterval, message -> KLog.i(TAG, "" + message));
+                timeOutManager.startQuestTimeOut(request.TimeoutInterval, message -> {
+                    KLog.i(TAG, "" + message);
+                    request.error(message);
+
+                    requests.remove(request);
+                });
                 request.start(cmd);
             }
 
@@ -104,42 +124,15 @@ public enum TShell
             @Override
             public void onReceiveData(String Line)
             {
-                if (requests.size() > 0)
-                {
-                    requests.peekFirst().onNotification(Line);
-                    requests.removeFirst();
+                request.onNotification(Line);
+                requests.remove(request);
 
-                    if (timeOutManager.timeOutList.size() > 0)
-                    {
-                        timeOutManager.removeTimeOut();
-                    }
+                if (timeOutManager.timeOutList.size() > 0)
+                {
+                    timeOutManager.removeTimeOut();
                 }
             }
         });
-    }
-
-    private void requestStart(String cmd, int timeOut, CallBack callBack, TShellRequest.RequestListener listener)
-    {
-        TShellSimpleRequest request = new TShellSimpleRequest(callBack, timeOut, cmd);
-        requests.add(request);
-
-        if (connection == null)
-            connect(request, cmd);
-        else
-            request.start(cmd);
-
-        request.mSubject.subscribe(listener::onSuccessful, err -> listener.onFailed(err.getMessage()));
-    }
-
-    public TGapConnection makeConnection(INotification mNotification)
-    {
-        if (connection != null && connection.isConnected())
-            return connection;
-        else
-        {
-            connection = new TGapConnection(address, mSevice, mNotification);
-            return connection;
-        }
     }
 
 
@@ -154,7 +147,7 @@ public enum TShell
         }
 
         Intent gattServiceIntent = new Intent(context, TService.class);
-        isBindService = context.bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
+        isBindService = context.getApplicationContext().bindService(gattServiceIntent, mServiceConnection, context.BIND_AUTO_CREATE);
         KLog.i(TAG, "bindBluetoothSevice.isBindService:" + isBindService);
         return isBindService;
     }
@@ -163,7 +156,7 @@ public enum TShell
     {
         KLog.i(TAG, "bindBluetoothSevice.isBindService:" + isBindService);
         if (isBindService)
-            context.unbindService(mServiceConnection);
+            context.getApplicationContext().unbindService(mServiceConnection);
     }
 
 
@@ -175,27 +168,25 @@ public enum TShell
 
     private class TShellSimpleRequest extends TShellRequest
     {
-        public CallBack callBack;
-        public String cmd;
+        private RequestCallBack requestCallBack;
 
-
-        public TShellSimpleRequest(CallBack callBack, int Timeout, String cmd)
+        public TShellSimpleRequest(RequestCallBack requestCallBack, int Timeout)
         {
             super(Timeout);
-            this.cmd = cmd;
-            this.callBack = callBack;
+            this.requestCallBack = requestCallBack;
         }
 
         @Override
         void start(String cmd, Object[]... args)
         {
             connection.write(cmd);
+            refreshTimeout();
         }
 
         @Override
         void onNotification(String line)
         {
-            if (callBack.onCall(line))
+            if (requestCallBack.onCall(line))
             {
                 next(line);
                 complete();
@@ -236,8 +227,8 @@ public enum TShell
                 @Override
                 public void run()
                 {
-                    timeOutList.peekFirst().onCall("time out");
-                    timeOutList.removeFirst();
+                    callBack.onCall("time out");
+                    timeOutList.remove(callBack);
                 }
             };
 

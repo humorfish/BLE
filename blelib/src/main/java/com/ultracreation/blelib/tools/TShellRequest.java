@@ -24,7 +24,6 @@ public abstract class TShellRequest
     {
         TimeoutInterval = Timeout;
         mSubject = PublishSubject.create();
-        refreshTimeout();
     }
 
     /* called by TShell.RequestStart */

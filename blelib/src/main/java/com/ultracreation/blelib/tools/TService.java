@@ -291,7 +291,6 @@ public class TService extends Service implements IService
             else
                 _minLen = data.length - n;
 
-
             byte[] writeData = new byte[_minLen];
             System.arraycopy(data, n, writeData, 0, _minLen);
             Log.d(TAG, "writeDataDirect .................n:" + n + " _minLen:" + _minLen + " totalPack:" + totalPack++);
