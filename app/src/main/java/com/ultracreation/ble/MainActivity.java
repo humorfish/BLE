@@ -10,8 +10,6 @@ import com.ultracreation.blelib.tools.TShell;
 import com.ultracreation.blelib.tools.TShellRequest;
 import com.ultracreation.blelib.utils.KLog;
 
-import static com.ultracreation.blelib.tools.TShell.Shell;
-
 public class MainActivity extends AppCompatActivity
 {
     private final static String TAG = MainActivity.class.getSimpleName();
@@ -22,6 +20,8 @@ public class MainActivity extends AppCompatActivity
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        TShell.Shell.bindBluetoothSevice(this);
+
         String[] filters = {".blt", "bluetensx", "bluetensq"};
         TGattScaner.Scaner.initBluetooth(this, REQUEST_ENABLE_BT);
         TGattScaner.Scaner.start(deviceName ->
