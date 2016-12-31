@@ -12,7 +12,7 @@ interface IService {
     void disconnect();
 
     void onConnected();
-    void onConnectedFailed();
+    void onConnectedFailed(String message);
     void onDisconnected();
     void onReceiveData(String Line);
 }

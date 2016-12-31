@@ -17,6 +17,7 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
@@ -27,7 +28,6 @@ import com.ultracreation.blelib.bean.SampleGattAttributes;
 import com.ultracreation.blelib.utils.KLog;
 import com.ultracreation.blelib.utils.XLog;
 
-import java.util.LinkedList;
 import java.util.UUID;
 
 /**
@@ -44,7 +44,6 @@ public class TService extends Service implements IService
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
     private StringBuilder mStringBuilder;
-    private LinkedList<byte[]> dataQueue = new LinkedList<>();
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback = (device, rssi, scanRecord) -> {
         if (device != null)
@@ -255,7 +254,6 @@ public class TService extends Service implements IService
                     String before = tmp.substring(0, index);
                     String after = tmp.substring(index + 2, tmp.length());
                     mStringBuilder.append(before);
-                    dataQueue.remove();
 
                     onReceiveData(mStringBuilder.toString());
 
@@ -322,15 +320,12 @@ public class TService extends Service implements IService
     {
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
-            dataQueue.add(datas);
-
             final BluetoothGattCharacteristic findCharacteristic = getCharacteristicByUuid(
                     mBluetoothGatt, SampleGattAttributes.SERVICE_BOLUTEK,
                     SampleGattAttributes.BODY_TONER_WRITE);
 
             if (null != findCharacteristic)
                 writeDataDirect(findCharacteristic, datas, 0);
-
         }
     }
 
@@ -355,13 +350,13 @@ public class TService extends Service implements IService
     }
 
     @Override
-    public void onConnectedFailed()
+    public void onConnectedFailed(String message)
     {
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
-
         scanDevice(false);
+
         if (notification != null)
-            notification.onConnectedFailed();
+            notification.onConnectedFailed(message);
     }
 
     @Override
@@ -378,7 +373,7 @@ public class TService extends Service implements IService
     public void onReceiveData(String Line)
     {
         if (notification != null)
-            notification.onDisconnected();
+            notification.onReceiveData(Line);
     }
 
     @Override
@@ -388,22 +383,27 @@ public class TService extends Service implements IService
         scanDevice(true);
 
         KLog.i(TAG, "address:" + address);
-        if (mBluetoothAdapter != null && !TextUtils.isEmpty(address))
+        if (mBluetoothAdapter != null && ! TextUtils.isEmpty(address))
         {
-            // TODO:Check if the address is in the gatt source.
-            final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
-            if (device == null)
-            {
-                KLog.e(TAG, "Device not found.  Unable to connect.");
-                this.onConnectedFailed();
-                return;
-            }
+            new Handler().postDelayed(() -> {
 
-            mBluetoothGatt = device.connectGatt(this, false, mGattCallback);
-            if (mBluetoothGatt != null)
-                KLog.e(TAG, "Trying to create a new connection.");
+                // TODO:Check if the address is in the gatt source.
+                final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+                if (device == null)
+                {
+                    KLog.e(TAG, "Device not found.  Unable to connect.");
+                    onConnectedFailed("Device not found.  Unable to connect.");
+                    return;
+                }
+
+                mBluetoothGatt = device.connectGatt(TService.this, false, mGattCallback);
+                if (mBluetoothGatt != null)
+                    KLog.e(TAG, "Trying to create a new connection.");
+
+            }, 1200);
+
         } else
-            this.onConnectedFailed();
+            onConnectedFailed("device id is empty");
     }
 
     protected class LocalBinder extends Binder

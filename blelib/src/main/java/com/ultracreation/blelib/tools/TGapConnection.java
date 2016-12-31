@@ -1,6 +1,10 @@
 package com.ultracreation.blelib.tools;
 
 import android.bluetooth.BluetoothProfile;
+import android.support.annotation.NonNull;
+
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 /**
@@ -10,10 +14,15 @@ import android.bluetooth.BluetoothProfile;
 public class TGapConnection extends IGapConnection
 {
     private String TAG = TGapConnection.class.getSimpleName();
+    private int connectTimeOut = 10000;
+
     private INotification mNotification;
     private TService mSevice;
 
-    public TGapConnection(String deviceId, TService mSevice, INotification mNotification)
+    private Timer timer;
+    private TimerTask timeOutTask;
+
+    public TGapConnection(@NonNull String deviceId, @NonNull TService mSevice, @NonNull INotification mNotification)
     {
         this.deviceId = deviceId;
         this.mSevice = mSevice;
@@ -25,18 +34,21 @@ public class TGapConnection extends IGapConnection
     @Override
     void connect()
     {
+        refreshTimeOut();
         this.mSevice.makeConnection(deviceId, new INotification()
         {
             @Override
             public void onConnected()
             {
+                clearTimeout();
                 mNotification.onConnected();
             }
 
             @Override
-            public void onConnectedFailed()
+            public void onConnectedFailed(String message)
             {
-                mNotification.onConnectedFailed();
+                clearTimeout();
+                mNotification.onConnectedFailed(message);
             }
 
             @Override
@@ -83,5 +95,49 @@ public class TGapConnection extends IGapConnection
     void writeNoResponse(byte[] buf)
     {
 
+    }
+
+    private void refreshTimeOut()
+    {
+        clearTimeout();
+
+        setTimeout();
+    }
+
+    /// @override
+    private void error(String message)
+    {
+        clearTimeout();
+        mNotification.onConnectedFailed(message);
+    }
+
+    private void setTimeout()
+    {
+        timeOutTask = new TimerTask()
+        {
+            @Override
+            public void run()
+            {
+                error("connect time out");
+            }
+        };
+
+        timer = new Timer();
+        timer.schedule(timeOutTask, connectTimeOut);
+    }
+
+    void clearTimeout()
+    {
+        if (timeOutTask != null)
+        {
+            timeOutTask.cancel();
+            timeOutTask = null;
+        }
+
+        if (timer != null)
+        {
+            timer.cancel();
+            timer = null;
+        }
     }
 }

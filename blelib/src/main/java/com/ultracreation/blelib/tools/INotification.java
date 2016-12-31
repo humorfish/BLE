@@ -6,7 +6,7 @@ package com.ultracreation.blelib.tools;
 
 public interface INotification{
     void onConnected();
-    void onConnectedFailed();
+    void onConnectedFailed(String message);
     void onDisconnected();
     void onReceiveData(String Line);
 }

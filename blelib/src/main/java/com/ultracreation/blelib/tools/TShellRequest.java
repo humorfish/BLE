@@ -1,98 +1,70 @@
 package com.ultracreation.blelib.tools;
 
-import com.ultracreation.blelib.utils.KLog;
+import android.support.annotation.NonNull;
 
 import java.util.Timer;
 import java.util.TimerTask;
-
-import io.reactivex.subjects.PublishSubject;
-import io.reactivex.subjects.Subject;
 
 /**
  * Created by you on 2016/12/7.
  */
 public abstract class TShellRequest
 {
-    private final String TAG = "TShellRequest";
-
-    protected int TimeoutInterval;
-    protected Subject<String> mSubject;
+    private RequestListener listener;
+    private int timeOut;
     private Timer timer;
     private TimerTask timeOutTask;
+    public String cmd;
 
-    public TShellRequest(int Timeout)
+    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull RequestListener listener)
     {
-        TimeoutInterval = Timeout;
-        mSubject = PublishSubject.create();
+        this.cmd = cmd;
+        this.timeOut = timeOut;
+        this.listener = listener;
     }
 
     /* called by TShell.RequestStart */
-    abstract void start(String Cmd, Object[]... args);
+    abstract void start(Object[]... args);
 
     /* called by TShell */
     abstract void onNotification(String Line);
 
     void refreshTimeout()
     {
-        KLog.i(TAG, "refreshTimeout.hasObservers:" + mSubject.hasObservers());
-        if (mSubject.hasComplete() || mSubject.hasThrowable())
-            return;
-
         clearTimeout();
-
-        if (TimeoutInterval == 0)
-            return;
 
         setTimeout();
     }
 
-    /* Subject */
-    /// @override
-    void complete()
-    {
-        KLog.i(TAG, "complete.hasObservers:" + mSubject.hasObservers());
-        if (mSubject.hasObservers())
-        {
-            mSubject.onComplete();
-            refreshTimeout();
-        }
-    }
-
     void next(String datas)
     {
-        KLog.i(TAG, "next.hasObservers:" + mSubject.hasObservers());
-        if (mSubject.hasObservers())
-            mSubject.onNext(datas);
+        clearTimeout();
+        listener.onSuccessful(datas);
     }
 
     /// @override
     void error(String message)
     {
-        if (mSubject.hasObservers())
-        {
-            mSubject.onError(new Throwable(message));
-            refreshTimeout();
-        }
+        clearTimeout();
+        listener.onFailed(message);
     }
 
     void setTimeout()
     {
-        if (timer == null)
-            timer = new Timer();
+        if (timeOut == 0)
+            return;
 
-        if (timeOutTask != null)
-            timeOutTask.cancel();
-
-        timeOutTask = null;
         timeOutTask = new TimerTask()
         {
             @Override
             public void run()
             {
-                error("time out");
+                error(cmd + " request time out");
             }
         };
-        timer.schedule(timeOutTask, TimeoutInterval);
+
+        timer = new Timer();
+        timer.schedule(timeOutTask, timeOut);
     }
 
     void clearTimeout()
@@ -109,6 +81,7 @@ public abstract class TShellRequest
             timer = null;
         }
     }
+
 
     public interface RequestListener
     {

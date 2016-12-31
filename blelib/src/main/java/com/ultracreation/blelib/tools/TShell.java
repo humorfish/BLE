@@ -6,13 +6,12 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
+import android.support.annotation.NonNull;
 import android.widget.Toast;
 
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.LinkedList;
-import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Created by Administrator on 2016/11/28.
@@ -23,16 +22,14 @@ public enum TShell
     Shell;
 
     private final static String TAG = TShell.class.getSimpleName();
-    private int connectTimeOut = 10000;
-    private int requestTimeOut = 6000;
+    private int requestTimeOut = 3000;
 
     private boolean isBindService = false;
     private Context context;
     private TService mSevice;
     private String address;
     private TGapConnection connection;
-    private TimeOutManager timeOutManager;
-    private LinkedList<TShellSimpleRequest> requests;
+    private TShellRequestManager requestManager;
 
     private ServiceConnection mServiceConnection = new ServiceConnection()
     {
@@ -61,8 +58,7 @@ public enum TShell
 
     TShell()
     {
-        requests = new LinkedList<>();
-        timeOutManager = new TimeOutManager();
+        requestManager = new TShellRequestManager();
     }
 
     public void get(String address)
@@ -75,44 +71,35 @@ public enum TShell
         requestStart(">ver", requestTimeOut, datas -> datas.contains("v."), listener);
     }
 
-    private void requestStart(String cmd, int timeOut, RequestCallBack requestCallBack, TShellRequest.RequestListener listener)
+    private void requestStart(String cmd, int timeOut, RequestCallBackFilter callBackFilter, TShellRequest.RequestListener listener)
     {
-        TShellSimpleRequest request = new TShellSimpleRequest(requestCallBack, timeOut);
-        requests.add(request);
+        TShellSimpleRequest request = new TShellSimpleRequest(cmd, callBackFilter, timeOut, listener);
+        requestManager.addRequest(request);
 
         if (connection == null)
-            connect(request, cmd);
+            connect(request);
         else
-            request.start(cmd);
-
-        request.mSubject.subscribe(listener::onSuccessful, err -> listener.onFailed(err.getMessage()));
+            requestManager.execute();
     }
 
-    private void connect(TShellSimpleRequest request, String cmd)
+    private void connect(TShellSimpleRequest request)
     {
         if (connection != null)
             return;
 
-        timeOutManager.startConnectTimeOut(connectTimeOut, message -> KLog.i(TAG, "" + message));
         connection = new TGapConnection(address, mSevice, new INotification()
         {
             @Override
             public void onConnected()
             {
-                timeOutManager.clearTimeOut();
-                timeOutManager.startQuestTimeOut(request.TimeoutInterval, message -> {
-                    KLog.i(TAG, "" + message);
-                    request.error(message);
-
-                    requests.remove(request);
-                });
-                request.start(cmd);
+                requestManager.execute();
             }
 
             @Override
-            public void onConnectedFailed()
+            public void onConnectedFailed(String message)
             {
                 connection = null;
+                request.error(message);
             }
 
             @Override
@@ -125,12 +112,6 @@ public enum TShell
             public void onReceiveData(String Line)
             {
                 request.onNotification(Line);
-                requests.remove(request);
-
-                if (timeOutManager.timeOutList.size() > 0)
-                {
-                    timeOutManager.removeTimeOut();
-                }
             }
         });
     }
@@ -140,7 +121,7 @@ public enum TShell
     {
         this.context = mContext;
 
-        if (!context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
+        if (! context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
         {
             Toast.makeText(context, "ble not support", Toast.LENGTH_SHORT).show();
             System.exit(0);
@@ -160,24 +141,57 @@ public enum TShell
     }
 
 
-    /* TShellSimpleRequest */
-
-    /**
-     * the request narrow to 1 ack 1 answer simple request, most cases toPromise
-     */
-
-    private class TShellSimpleRequest extends TShellRequest
+    private class TShellRequestManager implements IShellRequestManager
     {
-        private RequestCallBack requestCallBack;
+        private LinkedList<TShellSimpleRequest> requests;
 
-        public TShellSimpleRequest(RequestCallBack requestCallBack, int Timeout)
+        public TShellRequestManager()
         {
-            super(Timeout);
-            this.requestCallBack = requestCallBack;
+            requests = new LinkedList<>();
         }
 
         @Override
-        void start(String cmd, Object[]... args)
+        public void addRequest(TShellSimpleRequest request)
+        {
+            requests.add(request);
+        }
+
+        @Override
+        public void removeRequest(TShellSimpleRequest request)
+        {
+            requests.remove(request);
+        }
+
+        @Override
+        public void execute()
+        {
+            if (requests.size() > 0)
+            {
+                TShellSimpleRequest request = requests.peekFirst();
+                request.start();
+                requests.remove(request);
+            }
+        }
+    }
+
+    /* TShellSimpleRequest */
+
+    /**
+     * the request narrow to 1 ack 1 answer simple request
+     */
+
+    public class TShellSimpleRequest extends TShellRequest
+    {
+        private RequestCallBackFilter callBackFilter;
+
+        public TShellSimpleRequest(@NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull RequestListener listener)
+        {
+            super(cmd, timeOut, listener);
+            this.callBackFilter = callBackFilter;
+        }
+
+        @Override
+        void start(Object[]... args)
         {
             connection.write(cmd);
             refreshTimeout();
@@ -186,77 +200,10 @@ public enum TShell
         @Override
         void onNotification(String line)
         {
-            if (requestCallBack.onCall(line))
+            if (callBackFilter.onCall(line))
             {
                 next(line);
-                complete();
             }
         }
     }
-
-    class TimeOutManager implements ITimeOutManager
-    {
-        private Timer timer;
-        private TimerTask timerTask;
-        private LinkedList<ITimeOutCallBack> timeOutList;
-
-        public TimeOutManager()
-        {
-            timeOutList = new LinkedList<>();
-        }
-
-        @Override
-        public void startConnectTimeOut(int timeOut, ITimeOutCallBack callBack)
-        {
-            setTimeOut(timeOut, callBack);
-        }
-
-        @Override
-        public void startQuestTimeOut(int timeOut, ITimeOutCallBack callBack)
-        {
-            setTimeOut(timeOut, callBack);
-        }
-
-        @Override
-        public void setTimeOut(int timeOut, ITimeOutCallBack callBack)
-        {
-            timeOutList.add(callBack);
-            timer = new Timer();
-            timerTask = new TimerTask()
-            {
-                @Override
-                public void run()
-                {
-                    callBack.onCall("time out");
-                    timeOutList.remove(callBack);
-                }
-            };
-
-            timer.schedule(timerTask, timeOut);
-        }
-
-        @Override
-        public void clearTimeOut()
-        {
-            if (timerTask != null)
-            {
-                timerTask.cancel();
-                timerTask = null;
-            }
-
-            if (timer != null)
-            {
-                timer.cancel();
-                timer = null;
-            }
-        }
-
-        @Override
-        public void removeTimeOut()
-        {
-            if (timeOutList.size() > 0)
-                timeOutList.removeFirst();
-        }
-    }
-
 }

@@ -11,8 +11,14 @@ import com.ultracreation.blelib.tools.TShell;
 public class MyApplication extends Application {
 
     @Override
-    public void onCreate() {
+    public void onCreate()
+    {
         super.onCreate();
         TShell.Shell.bindBluetoothSevice(this);
+    }
+
+    public void releaseBinding()
+    {
+        TShell.Shell.unBindBluetoothSevice();
     }
 }
