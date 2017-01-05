@@ -19,7 +19,6 @@ public enum TGattScaner
 {
     Scaner;
 
-    private final String TAG = "TGattScaner";
     private Subject<BLEDevice> mSubject;
     private Disposable mDisposable;
 
@@ -44,8 +43,7 @@ public enum TGattScaner
 
     public void initBluetooth(@NonNull Activity activity, final int REQUEST_ENABLE_BT)
     {
-        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter
-                .getDefaultAdapter();
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         if (mBluetoothAdapter == null)
             error("init ble failed");

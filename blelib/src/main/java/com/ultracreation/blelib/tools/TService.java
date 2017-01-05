@@ -44,13 +44,7 @@ public class TService extends Service implements IService
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
     private StringBuilder mStringBuilder;
-    // Device scan callback.
-    private BluetoothAdapter.LeScanCallback mLeScanCallback = (device, rssi, scanRecord) -> {
-        if (device != null)
-        {
 
-        }
-    };
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback()
     {
         @Override
@@ -178,10 +172,10 @@ public class TService extends Service implements IService
     {
         if (isStart)
         {
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
-            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            mBluetoothAdapter.stopLeScan(null);
+            mBluetoothAdapter.startLeScan(null);
         } else
-            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mBluetoothAdapter.stopLeScan(null);
     }
 
     private void setupGattServices(boolean isStop)
@@ -214,8 +208,7 @@ public class TService extends Service implements IService
         return characteristic;
     }
 
-    public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic,
-                                              boolean enabled)
+    public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic, boolean enabled)
     {
         if (mBluetoothAdapter == null || mBluetoothGatt == null)
         {
@@ -336,7 +329,10 @@ public class TService extends Service implements IService
         {
             mBluetoothGatt.disconnect();
             mBluetoothGatt.close();
+            mBluetoothGatt = null;
         }
+
+        mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
     }
 
     @Override
@@ -362,6 +358,8 @@ public class TService extends Service implements IService
     @Override
     public void onDisconnected()
     {
+        KLog.i(TAG, "onDisconnected:mConnectionState" + mConnectionState);
+
         mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
         scanDevice(false);
 
@@ -382,7 +380,7 @@ public class TService extends Service implements IService
         notification = mINotification;
         scanDevice(true);
 
-        KLog.i(TAG, "address:" + address);
+        KLog.i(TAG, "----3--->address:" + address + "   mConnectionState:" + mConnectionState);
         if (mBluetoothAdapter != null && ! TextUtils.isEmpty(address))
         {
             new Handler().postDelayed(() -> {

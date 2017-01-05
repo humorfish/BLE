@@ -3,6 +3,8 @@ package com.ultracreation.blelib.tools;
 import android.bluetooth.BluetoothProfile;
 import android.support.annotation.NonNull;
 
+import com.ultracreation.blelib.utils.KLog;
+
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -34,6 +36,8 @@ public class TGapConnection extends IGapConnection
     @Override
     void connect()
     {
+        KLog.i(TAG, "-----2--->");
+
         refreshTimeOut();
         this.mSevice.makeConnection(deviceId, new INotification()
         {
@@ -75,10 +79,7 @@ public class TGapConnection extends IGapConnection
     @Override
     boolean isConnected()
     {
-        if (mSevice.mConnectionState == BluetoothProfile.STATE_DISCONNECTED)
-            return false;
-        else
-            return true;
+        return mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED;
     }
 
     @Override
@@ -126,7 +127,7 @@ public class TGapConnection extends IGapConnection
         timer.schedule(timeOutTask, connectTimeOut);
     }
 
-    void clearTimeout()
+    private void clearTimeout()
     {
         if (timeOutTask != null)
         {

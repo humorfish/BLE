@@ -3,6 +3,7 @@ package com.ultracreation.ble;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
@@ -35,26 +36,48 @@ public class MainActivity extends AppCompatActivity
         TGattScaner.Scaner.initBluetooth(this, REQUEST_ENABLE_BT);
         TGattScaner.Scaner.start(deviceName ->
         {
-            if (deviceName != null)
+            if (! TextUtils.isEmpty(deviceName) && deviceName.substring(deviceName.length() - 4, deviceName.length()).equalsIgnoreCase(filters[0]))
                 return true;
             else
-                return false;
+            {
+                for (int i=1; i<filters.length; i++)
+                {
+                    if (filters[i].equalsIgnoreCase(deviceName))
+                        return true;
+                }
+            }
+
+            return false;
         }, bleDevice -> {
             TGattScaner.Scaner.stop();
 
-            TShell.Shell.get(bleDevice.device.getAddress());
+            TShell.Shell.start(bleDevice.device.getAddress());
             TShell.Shell.versionRequest(new TShellRequest.RequestListener()
             {
                 @Override
-                public void onSuccessful(String value)
+                public void onSuccess(String value)
                 {
-                    KLog.i(TAG, "ver:" + value);
+                    KLog.i(TAG, "versionRequest.ver:" + value);
+                    TShell.Shell.startOutPut(new TShellRequest.RequestListener()
+                    {
+                        @Override
+                        public void onSuccess(String value)
+                        {
+                            KLog.i(TAG, "startOutPut.osta:" + value);
+                        }
+
+                        @Override
+                        public void onFailure(String err)
+                        {
+                            KLog.i(TAG, "startOutPut.error:" + err);
+                        }
+                    });
                 }
 
                 @Override
-                public void onFailed(String err)
+                public void onFailure(String err)
                 {
-                    KLog.i(TAG, "error:" + err);
+                    KLog.i(TAG, "versionRequest.error:" + err);
                 }
             });
         });
@@ -66,15 +89,15 @@ public class MainActivity extends AppCompatActivity
         TShell.Shell.versionRequest(new TShellRequest.RequestListener()
         {
             @Override
-            public void onSuccessful(String value)
+            public void onSuccess(String value)
             {
-                KLog.i(TAG, "ver:" + value);
+                KLog.i(TAG, "onClick.versionRequest.ver:" + value);
             }
 
             @Override
-            public void onFailed(String err)
+            public void onFailure(String err)
             {
-                KLog.i(TAG, "error:" + err);
+                KLog.i(TAG, "onClick.versionRequest.error:" + err);
             }
         });
     }
@@ -101,5 +124,7 @@ public class MainActivity extends AppCompatActivity
     protected void onDestroy()
     {
         super.onDestroy();
+        TGattScaner.Scaner.stop();
+        TShell.Shell.stop();
     }
 }

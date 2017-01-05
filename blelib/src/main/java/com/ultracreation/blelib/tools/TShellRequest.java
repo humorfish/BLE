@@ -14,7 +14,7 @@ public abstract class TShellRequest
     private int timeOut;
     private Timer timer;
     private TimerTask timeOutTask;
-    public String cmd;
+    protected String cmd;
 
     public TShellRequest(@NonNull String cmd, int timeOut, @NonNull RequestListener listener)
     {
@@ -23,10 +23,8 @@ public abstract class TShellRequest
         this.listener = listener;
     }
 
-    /* called by TShell.RequestStart */
     abstract void start(Object[]... args);
 
-    /* called by TShell */
     abstract void onNotification(String Line);
 
     void refreshTimeout()
@@ -39,14 +37,14 @@ public abstract class TShellRequest
     void next(String datas)
     {
         clearTimeout();
-        listener.onSuccessful(datas);
+        listener.onSuccess(datas);
     }
 
     /// @override
     void error(String message)
     {
         clearTimeout();
-        listener.onFailed(message);
+        listener.onFailure(message);
     }
 
     void setTimeout()
@@ -85,8 +83,8 @@ public abstract class TShellRequest
 
     public interface RequestListener
     {
-        void onSuccessful(String value);
+        void onSuccess(String value);
 
-        void onFailed(String err);
+        void onFailure(String err);
     }
 }

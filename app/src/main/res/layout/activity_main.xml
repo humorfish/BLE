@@ -9,15 +9,12 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.ultracreation.ble.MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!" />
-
     <Button
         android:id="@+id/test"
+        android:layout_centerInParent="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Test"/>
+        android:text="Test"
+        android:textSize="28dp"/>
 
 </RelativeLayout>

@@ -7,6 +7,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.support.annotation.NonNull;
+import android.text.TextUtils;
 import android.widget.Toast;
 
 import com.ultracreation.blelib.utils.KLog;
@@ -42,7 +43,7 @@ public enum TShell
             }
 
             mSevice = ((TService.LocalBinder) iBinder).getService();
-            if (!mSevice.initialize())
+            if (! mSevice.initialize())
             {
                 KLog.e("mServiceConnection", "Unable to initialize Bluetooth");
                 System.exit(0);
@@ -61,9 +62,20 @@ public enum TShell
         requestManager = new TShellRequestManager();
     }
 
-    public void get(String address)
+    public void start(String address)
     {
         this.address = address;
+        connect();
+    }
+
+    public void stop()
+    {
+        requestManager.clearRequest();
+        if (connection != null)
+        {
+            connection.disconnect();
+            connection = null;
+        }
     }
 
     public void versionRequest(TShellRequest.RequestListener listener)
@@ -71,51 +83,75 @@ public enum TShell
         requestStart(">ver", requestTimeOut, datas -> datas.contains("v."), listener);
     }
 
+    public void startOutPut(TShellRequest.RequestListener listener)
+    {
+        requestStart(">osta", requestTimeOut, datas -> datas.contains("0: ok"), listener);
+    }
+
+    public void startScriptFile(String fileName, TShellRequest.RequestListener listener)
+    {
+        requestStart(">ssta " + fileName, requestTimeOut, datas -> datas.contains("0: ok"), listener);
+    }
+
     private void requestStart(String cmd, int timeOut, RequestCallBackFilter callBackFilter, TShellRequest.RequestListener listener)
     {
         TShellSimpleRequest request = new TShellSimpleRequest(cmd, callBackFilter, timeOut, listener);
         requestManager.addRequest(request);
 
-        if (connection == null)
-            connect(request);
-        else
-            requestManager.execute();
+        connect();
     }
 
-    private void connect(TShellSimpleRequest request)
+    private void connect()
     {
-        if (connection != null)
-            return;
-
-        connection = new TGapConnection(address, mSevice, new INotification()
+        if (connection != null && connection.isConnected())
         {
-            @Override
-            public void onConnected()
+            KLog.i(TAG, "-----1--->");
+            requestManager.execute();
+        } else
+        {
+            KLog.i(TAG, "-----3--->connection:" + connection);
+            if (! TextUtils.isEmpty(address) && connection == null)
             {
-                requestManager.execute();
-            }
+                connection = new TGapConnection(address, mSevice, new INotification()
+                {
+                    @Override
+                    public void onConnected()
+                    {
+                        KLog.i(TAG, "onConnected");
+                        requestManager.execute();
+                    }
 
-            @Override
-            public void onConnectedFailed(String message)
-            {
-                connection = null;
-                request.error(message);
-            }
+                    @Override
+                    public void onConnectedFailed(String message)
+                    {
+                        KLog.i(TAG, "-----4--->onConnectedFailed");
+                        connection = null;
+                        requestManager.onError(message);
+                    }
 
-            @Override
-            public void onDisconnected()
-            {
-                connection = null;
-            }
+                    @Override
+                    public void onDisconnected()
+                    {
+                        connection = null;
+                        requestManager.clearRequest();
+                    }
 
-            @Override
-            public void onReceiveData(String Line)
+                    @Override
+                    public void onReceiveData(String Line)
+                    {
+                        // 获取特殊 信息
+                        requestManager.onNotification(Line);
+                    }
+                });
+            } else
             {
-                request.onNotification(Line);
+                if (TextUtils.isEmpty(address))
+                    KLog.i(TAG, "wait device");
+                else
+                    KLog.i(TAG, "connecting......");
             }
-        });
+        }
     }
-
 
     public boolean bindBluetoothSevice(Context mContext)
     {
@@ -144,6 +180,7 @@ public enum TShell
     private class TShellRequestManager implements IShellRequestManager
     {
         private LinkedList<TShellSimpleRequest> requests;
+        private TShellSimpleRequest currentRequest;
 
         public TShellRequestManager()
         {
@@ -154,12 +191,16 @@ public enum TShell
         public void addRequest(TShellSimpleRequest request)
         {
             requests.add(request);
+            KLog.i(TAG, "addRequest.size:" + requests.size());
         }
 
         @Override
         public void removeRequest(TShellSimpleRequest request)
         {
-            requests.remove(request);
+            request.clearTimeout();
+            if (requests.size() > 0)
+                requests.removeFirst();
+            KLog.i(TAG, "removeRequest.size:" + requests.size());
         }
 
         @Override
@@ -167,10 +208,45 @@ public enum TShell
         {
             if (requests.size() > 0)
             {
-                TShellSimpleRequest request = requests.peekFirst();
-                request.start();
-                requests.remove(request);
+                if (requests.peekFirst() != currentRequest)
+                {
+                    currentRequest = requests.peekFirst();
+                    currentRequest.start();
+                }
             }
+        }
+
+        @Override
+        public void onError(String message)
+        {
+            if (currentRequest != null)
+            {
+                removeRequest(currentRequest);
+                currentRequest.error(message);
+            }
+        }
+
+        @Override
+        public void onNotification(String message)
+        {
+            if (currentRequest != null)
+            {
+                removeRequest(currentRequest);
+                execute();
+                currentRequest.onNotification(message);
+            }
+        }
+
+        @Override
+        public void clearRequest()
+        {
+            if (currentRequest != null)
+            {
+                currentRequest.clearTimeout();
+                currentRequest = null;
+            }
+
+            requests.clear();
         }
     }
 
