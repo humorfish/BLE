@@ -6,8 +6,8 @@ package com.ultracreation.blelib.tools;
 
 public interface IShellRequestManager
 {
-    void addRequest(TShell.TShellSimpleRequest request);
-    void removeRequest(TShell.TShellSimpleRequest request);
+    void addRequest(TShellRequest request);
+    void removeRequest(TShellRequest request);
     void execute();
     void onError(String message);
     void onNotification(String message);

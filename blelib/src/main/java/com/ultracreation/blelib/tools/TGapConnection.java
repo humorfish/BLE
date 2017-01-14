@@ -79,7 +79,7 @@ public class TGapConnection extends IGapConnection
     @Override
     boolean isConnected()
     {
-        return mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED;
+        return mSevice.isConnected(deviceId);
     }
 
     @Override
@@ -88,14 +88,15 @@ public class TGapConnection extends IGapConnection
         if (mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
             cmd = cmd + "\r\n";
-            this.mSevice.write(cmd.getBytes());
+            mSevice.write(cmd.getBytes());
         }
     }
 
     @Override
     void writeNoResponse(byte[] buf)
     {
-
+        if (mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
+            mSevice.write(buf);
     }
 
     private void refreshTimeOut()

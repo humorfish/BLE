@@ -1,59 +1,63 @@
 package com.ultracreation.blelib.tools;
 
+import android.support.annotation.NonNull;
+
 import java.nio.ByteBuffer;
 
 /**
  * Created by you on 2016/12/3.
  */
-public class TLoopBuffer {
-
+public class TLoopBuffer
+{
     private ByteBuffer _Memory;
-    private int bufferSize;
     private int ReadIndex;
     private int WriteIndex;
 
-    TLoopBuffer(int Size)
+    public TLoopBuffer(int size)
     {
         this.ReadIndex = this.WriteIndex = 0;
-        this._Memory = ByteBuffer.allocate(Size);
+        if (size < 1024)
+            size = 1024;
+
+        this._Memory = ByteBuffer.allocate(size);
     }
 
-    int size()
+    public int size()
     {
-        return bufferSize;
+        return _Memory.capacity();
     }
 
-    int count()
+    public int count()
     {
-        return (this.WriteIndex + bufferSize - this.ReadIndex) % bufferSize;
+        return (this.WriteIndex + _Memory.capacity() - this.ReadIndex) % _Memory.capacity();
     }
 
-    int avail()
+    public int avail()
     {
-        return bufferSize - count();
+        return _Memory.capacity() - count();
     }
 
-    boolean isEmpty()
+    public boolean isEmpty()
     {
-        return (this.ReadIndex == this.WriteIndex);
+        return this.ReadIndex == this.WriteIndex;
     }
 
-    boolean isFull()
+    public boolean isFull()
     {
-        return (this.WriteIndex + 1) % bufferSize == this.ReadIndex;
+        return (this.WriteIndex + 1) % _Memory.capacity() == this.ReadIndex;
     }
 
-    byte[] memory()
+    public byte[] memory()
     {
         return this._Memory.array();
     }
 
-    void clear()
+    public void clear()
     {
         this.ReadIndex = this.WriteIndex = 0;
     }
 
-    boolean push(final byte[] datas, int count)
+    public boolean push(@NonNull final byte[] datas, int count)
     {
         if (count > datas.length)
             count = datas.length;
@@ -64,40 +68,23 @@ public class TLoopBuffer {
         for (int i = 0; i < count; i++)
         {
             _Memory.put(WriteIndex, datas[i]);
-            WriteIndex = (this.WriteIndex + 1) % bufferSize;
+            WriteIndex = (this.WriteIndex + 1) % _Memory.capacity();
         }
         return true;
     }
 
-    int ExtractTo(byte[] datas, int count)
+    public byte[] extractTo(int extractSize)
     {
-        if (count > datas.length)
-            count = datas.length;
+        if (extractSize > this.count())
+            extractSize = this.count();
 
-        if (count > count())
-            count = count();
+        byte[] datas = new byte[extractSize];
 
-        if (count > 0)
+        for (int i = 0; i < extractSize; i++)
         {
-            for (int i = 0; i < count; i ++)
-            {
-                datas[i] = _Memory.get(ReadIndex);
-                ReadIndex = (ReadIndex + 1) % bufferSize;
-            }
+            datas[i] = _Memory.get(ReadIndex);
+            ReadIndex = (ReadIndex + 1) % _Memory.capacity();
         }
-        return count;
+        return datas;
     }
-
-    byte[] Extract(int count)
-    {
-        if (count > this.count())
-            count = this.count();
-        if (count == 0)
-            return null;
-
-        byte[] mBytes = new byte[count];
-        this.ExtractTo(mBytes, count);
-        return mBytes;
-    }
-
 }

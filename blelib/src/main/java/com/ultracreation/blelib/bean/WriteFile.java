@@ -30,12 +30,11 @@ public class WriteFile {
 		return false;
 	}
 	
-	public void free() {
+	public void free() {//test
 		if(mOutputStream!=null) {
 			try {
 				mOutputStream.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}

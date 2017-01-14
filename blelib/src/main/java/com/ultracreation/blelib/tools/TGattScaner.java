@@ -22,8 +22,6 @@ public enum TGattScaner
     private Subject<BLEDevice> mSubject;
     private Disposable mDisposable;
 
-    private boolean isScanning = false;
-
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback()
     {
         @Override
@@ -59,10 +57,10 @@ public enum TGattScaner
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null)
             error("ble not support");
-        else if (!isScanning)
+        else
         {
-            isScanning = true;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
+
             mBluetoothAdapter.startLeScan(mLeScanCallback);
             if (mDisposable == null || mDisposable.isDisposed())
             {
@@ -75,7 +73,6 @@ public enum TGattScaner
 
     public void stop()
     {
-        isScanning = false;
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter != null)
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -89,7 +86,7 @@ public enum TGattScaner
     {
         if (mSubject.hasObservers())
         {
-            mSubject.onError(new Throwable(message));
+            mSubject.onError(new IllegalStateException(message));
         }
     }
 

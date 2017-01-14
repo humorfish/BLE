@@ -39,11 +39,13 @@ public class TService extends Service implements IService
     private final static int INIT_WRITE_SIZE = 20;
     private final IBinder mBinder = new LocalBinder();
     public int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
     private StringBuilder mStringBuilder;
+    private Handler connectionHandler = new Handler();
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback()
     {
@@ -175,7 +177,9 @@ public class TService extends Service implements IService
             mBluetoothAdapter.stopLeScan(null);
             mBluetoothAdapter.startLeScan(null);
         } else
+        {
             mBluetoothAdapter.stopLeScan(null);
+        }
     }
 
     private void setupGattServices(boolean isStop)
@@ -311,6 +315,7 @@ public class TService extends Service implements IService
     @Override
     public void write(byte[] datas)
     {
+        KLog.i(TAG, "service.write:" + new String(datas));
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
             final BluetoothGattCharacteristic findCharacteristic = getCharacteristicByUuid(
@@ -378,30 +383,65 @@ public class TService extends Service implements IService
     public void makeConnection(String address, INotification mINotification)
     {
         notification = mINotification;
-        scanDevice(true);
+        KLog.i(TAG, "----11111---->mBluetoothAdapter" + mBluetoothAdapter);
 
-        KLog.i(TAG, "----3--->address:" + address + "   mConnectionState:" + mConnectionState);
-        if (mBluetoothAdapter != null && ! TextUtils.isEmpty(address))
+        if (mBluetoothAdapter == null )
         {
-            new Handler().postDelayed(() -> {
+            onConnectedFailed("BLE is not ready");
+        }
+        else
+        {
+            scanDevice(true);
 
-                // TODO:Check if the address is in the gatt source.
-                final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
-                if (device == null)
-                {
-                    KLog.e(TAG, "Device not found.  Unable to connect.");
-                    onConnectedFailed("Device not found.  Unable to connect.");
-                    return;
-                }
+            if (! TextUtils.isEmpty(address))
+            {
+                connectionHandler.postDelayed(new ConnectionRunnable(address), 1000);
+            } else
+                onConnectedFailed("device id is empty");
+        }
+    }
 
-                mBluetoothGatt = device.connectGatt(TService.this, false, mGattCallback);
-                if (mBluetoothGatt != null)
-                    KLog.e(TAG, "Trying to create a new connection.");
+    public boolean isConnected(String address)
+    {
+        return mConnectionState == BluetoothProfile.STATE_CONNECTED;
+//        final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+//        if (device == null)
+//        {
+//           return false;
+//        }
+//        else
+//        {
+//            if (mBluetoothGatt != null && mBluetoothManager.getConnectionState(device, GATT_SERVER) == BluetoothProfile.STATE_CONNECTED)
+//                return true;
+//            else
+//                return false;
+//        }
+    }
 
-            }, 1200);
+    private class ConnectionRunnable implements Runnable
+    {
+        private String address;
+        public ConnectionRunnable(String address)
+        {
+            this.address = address;
+        }
 
-        } else
-            onConnectedFailed("device id is empty");
+        @Override
+        public void run()
+        {
+            // TODO:Check if the address is in the gatt source.
+            final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+            if (device == null)
+            {
+                KLog.e(TAG, "Device not found.  Unable to connect.");
+                onConnectedFailed("Device not found.  Unable to connect.");
+                return;
+            }
+
+            mBluetoothGatt = device.connectGatt(TService.this, false, mGattCallback);
+            if (mBluetoothGatt != null)
+                KLog.e(TAG, "Trying to create a new connection.");
+        }
     }
 
     protected class LocalBinder extends Binder

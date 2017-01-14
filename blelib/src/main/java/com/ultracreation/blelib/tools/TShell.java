@@ -14,6 +14,10 @@ import com.ultracreation.blelib.utils.KLog;
 
 import java.util.LinkedList;
 
+import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.Subject;
+
+
 /**
  * Created by Administrator on 2016/11/28.
  */
@@ -78,26 +82,65 @@ public enum TShell
         }
     }
 
-    public void versionRequest(TShellRequest.RequestListener listener)
+    public Subject<String> getVersion()
     {
-        requestStart(">ver", requestTimeOut, datas -> datas.contains("v."), listener);
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ver", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
     }
 
-    public void startOutPut(TShellRequest.RequestListener listener)
+    public Subject<String> getStatus()
     {
-        requestStart(">osta", requestTimeOut, datas -> datas.contains("0: ok"), listener);
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">stat", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
     }
 
-    public void startScriptFile(String fileName, TShellRequest.RequestListener listener)
+    public Subject<String> startOutput()
     {
-        requestStart(">ssta " + fileName, requestTimeOut, datas -> datas.contains("0: ok"), listener);
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osta", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
     }
 
-    private void requestStart(String cmd, int timeOut, RequestCallBackFilter callBackFilter, TShellRequest.RequestListener listener)
+    public Subject<String> stopOutput()
     {
-        TShellSimpleRequest request = new TShellSimpleRequest(cmd, callBackFilter, timeOut, listener);
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osto", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
+    }
+
+    public Subject<String> fileMd5(String fileName)
+    {
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">md5 " + fileName, datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
+    }
+
+    public Subject<String> catFile(String fileName, byte[] fileData)
+    {
+        Subject<String> listener = PublishSubject.create();
+        TShellCatRequest request = new TShellCatRequest(this, "cat " + fileName + " -l=" + fileData.length, datas -> datas.contains("3:end of cat"), requestTimeOut, fileData, listener);
+        requestStart(request);
+        return listener;
+    }
+
+    public Subject<String> startScriptFile(String fileName)
+    {
+        Subject<String> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ssta " + fileName, datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        requestStart(request);
+        return listener;
+    }
+
+    private void requestStart(TShellRequest request)
+    {
         requestManager.addRequest(request);
-
         connect();
     }
 
@@ -105,11 +148,9 @@ public enum TShell
     {
         if (connection != null && connection.isConnected())
         {
-            KLog.i(TAG, "-----1--->");
             requestManager.execute();
         } else
         {
-            KLog.i(TAG, "-----3--->connection:" + connection);
             if (! TextUtils.isEmpty(address) && connection == null)
             {
                 connection = new TGapConnection(address, mSevice, new INotification()
@@ -124,7 +165,7 @@ public enum TShell
                     @Override
                     public void onConnectedFailed(String message)
                     {
-                        KLog.i(TAG, "-----4--->onConnectedFailed");
+                        KLog.i(TAG, "-----4--->onConnectedFailed.message" + message);
                         connection = null;
                         requestManager.onError(message);
                     }
@@ -139,7 +180,6 @@ public enum TShell
                     @Override
                     public void onReceiveData(String Line)
                     {
-                        // 获取特殊 信息
                         requestManager.onNotification(Line);
                     }
                 });
@@ -179,8 +219,8 @@ public enum TShell
 
     private class TShellRequestManager implements IShellRequestManager
     {
-        private LinkedList<TShellSimpleRequest> requests;
-        private TShellSimpleRequest currentRequest;
+        private LinkedList<TShellRequest> requests;
+        private TShellRequest currentRequest;
 
         public TShellRequestManager()
         {
@@ -188,14 +228,14 @@ public enum TShell
         }
 
         @Override
-        public void addRequest(TShellSimpleRequest request)
+        public void addRequest(TShellRequest request)
         {
             requests.add(request);
             KLog.i(TAG, "addRequest.size:" + requests.size());
         }
 
         @Override
-        public void removeRequest(TShellSimpleRequest request)
+        public void removeRequest(TShellRequest request)
         {
             request.clearTimeout();
             if (requests.size() > 0)
@@ -258,18 +298,22 @@ public enum TShell
 
     public class TShellSimpleRequest extends TShellRequest
     {
+        private TShell proxy;
         private RequestCallBackFilter callBackFilter;
 
-        public TShellSimpleRequest(@NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull RequestListener listener)
+        public TShellSimpleRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull Subject<String> listener)
         {
             super(cmd, timeOut, listener);
             this.callBackFilter = callBackFilter;
+            this.proxy = proxy;
         }
 
         @Override
         void start(Object[]... args)
         {
-            connection.write(cmd);
+            if (proxy.connection != null)
+                proxy.connection.write(cmd);
+
             refreshTimeout();
         }
 
@@ -279,6 +323,63 @@ public enum TShell
             if (callBackFilter.onCall(line))
             {
                 next(line);
+            }
+        }
+    }
+
+    /* TShellRequest */
+    public abstract class TProxyShellRequest extends TShellRequest
+    {
+        protected TShell proxy;
+        public TProxyShellRequest(@NonNull TShell proxy, @NonNull String cmd, int timeOut, @NonNull Subject<String> listener)
+        {
+            super(cmd, timeOut, listener);
+            this.proxy = proxy;
+        }
+
+        abstract void catFile();
+    }
+
+    public class TShellCatRequest extends TProxyShellRequest
+    {
+        private RequestCallBackFilter callBackFilter;
+        private byte[] fileData;
+
+        public TShellCatRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull byte[] fileData, @NonNull Subject<String> listener)
+        {
+            super(proxy, cmd, timeOut, listener);
+            this.callBackFilter = callBackFilter;
+            this.fileData = fileData;
+        }
+
+        @Override
+        void catFile()
+        {
+            proxy.stopOutput().subscribe(s ->
+            {
+                if (proxy.connection != null)
+                {
+                    proxy.connection.write(cmd);
+                    proxy.connection.writeNoResponse(fileData);
+                }
+            }, error ->
+            {
+                error("stop running failed");
+            });
+        }
+
+        @Override
+        void start(Object[]... args)
+        {
+            catFile();
+        }
+
+        @Override
+        void onNotification(String Line)
+        {
+            if (callBackFilter.onCall(Line))
+            {
+                next(Line);
             }
         }
     }

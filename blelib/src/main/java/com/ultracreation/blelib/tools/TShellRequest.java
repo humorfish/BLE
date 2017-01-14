@@ -5,18 +5,21 @@ import android.support.annotation.NonNull;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.reactivex.subjects.Subject;
+
+
 /**
  * Created by you on 2016/12/7.
  */
 public abstract class TShellRequest
 {
-    private RequestListener listener;
+    private Subject<String> listener;
     private int timeOut;
     private Timer timer;
     private TimerTask timeOutTask;
     protected String cmd;
 
-    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull RequestListener listener)
+    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<String> listener)
     {
         this.cmd = cmd;
         this.timeOut = timeOut;
@@ -37,17 +40,18 @@ public abstract class TShellRequest
     void next(String datas)
     {
         clearTimeout();
-        listener.onSuccess(datas);
+        listener.onNext(datas);
+        listener.onComplete();
     }
 
     /// @override
     void error(String message)
     {
         clearTimeout();
-        listener.onFailure(message);
+        listener.onError(new IllegalStateException(message));
     }
 
-    void setTimeout()
+    private void setTimeout()
     {
         if (timeOut == 0)
             return;
@@ -78,13 +82,5 @@ public abstract class TShellRequest
             timer.cancel();
             timer = null;
         }
-    }
-
-
-    public interface RequestListener
-    {
-        void onSuccess(String value);
-
-        void onFailure(String err);
     }
 }
