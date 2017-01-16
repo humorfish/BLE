@@ -1,4 +1,4 @@
-package com.ultracreation.blelib.tools;
+package com.ultracreation.blelib.impl;
 
 /**
  * Created by Administrator on 2016/12/4.

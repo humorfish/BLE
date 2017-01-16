@@ -25,6 +25,8 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.ultracreation.blelib.bean.SampleGattAttributes;
+import com.ultracreation.blelib.impl.INotification;
+import com.ultracreation.blelib.impl.IService;
 import com.ultracreation.blelib.utils.KLog;
 import com.ultracreation.blelib.utils.XLog;
 
@@ -44,8 +46,10 @@ public class TService extends Service implements IService
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
-    private StringBuilder mStringBuilder;
+    private TLoopBuffer mReceiveDataBuffer;
+
     private Handler connectionHandler = new Handler();
+
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback()
     {
@@ -165,7 +169,7 @@ public class TService extends Service implements IService
             return false;
         }
 
-        mStringBuilder = new StringBuilder();
+        mReceiveDataBuffer = new TLoopBuffer(1000);
         return true;
     }
 
@@ -240,25 +244,7 @@ public class TService extends Service implements IService
 
         if (characteristicUuid.equals(SampleGattAttributes.BODY_TONER_BOLUTEK))
         {
-            String tmp = new String(rawData);
-            if (! TextUtils.isEmpty(tmp))
-            {
-                int index = tmp.indexOf("\r\n");
-                KLog.i(TAG, "data:" + tmp.replace("\r\n", "") + "  index:" + index);
-
-                if (index >= 0)
-                {
-                    String before = tmp.substring(0, index);
-                    String after = tmp.substring(index + 2, tmp.length());
-                    mStringBuilder.append(before);
-
-                    onReceiveData(mStringBuilder.toString());
-
-                    mStringBuilder.setLength(0);
-                    mStringBuilder.append(after);
-                } else
-                    mStringBuilder.append(tmp);
-            }
+           
         }
     }
 
@@ -383,7 +369,6 @@ public class TService extends Service implements IService
     public void makeConnection(String address, INotification mINotification)
     {
         notification = mINotification;
-        KLog.i(TAG, "----11111---->mBluetoothAdapter" + mBluetoothAdapter);
 
         if (mBluetoothAdapter == null )
         {

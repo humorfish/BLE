@@ -1,4 +1,6 @@
-package com.ultracreation.blelib.tools;
+package com.ultracreation.blelib.impl;
+
+import com.ultracreation.blelib.tools.TShellRequest;
 
 /**
  * Created by you on 2016/12/31.

@@ -3,6 +3,7 @@ package com.ultracreation.blelib.tools;
 import android.bluetooth.BluetoothProfile;
 import android.support.annotation.NonNull;
 
+import com.ultracreation.blelib.impl.INotification;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.Timer;

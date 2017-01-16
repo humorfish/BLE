@@ -10,6 +10,9 @@ import android.support.annotation.NonNull;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import com.ultracreation.blelib.impl.INotification;
+import com.ultracreation.blelib.impl.IShellRequestManager;
+import com.ultracreation.blelib.impl.RequestCallBackFilter;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.util.LinkedList;
@@ -125,7 +128,7 @@ public enum TShell
     public Subject<String> catFile(String fileName, byte[] fileData)
     {
         Subject<String> listener = PublishSubject.create();
-        TShellCatRequest request = new TShellCatRequest(this, "cat " + fileName + " -l=" + fileData.length, datas -> datas.contains("3:end of cat"), requestTimeOut, fileData, listener);
+        TShellCatRequest request = new TShellCatRequest(this, ">cat " + fileName + " -l=" + fileData.length, datas -> datas.contains("3:end of cat"), requestTimeOut, fileData, listener);
         requestStart(request);
         return listener;
     }
@@ -348,6 +351,8 @@ public enum TShell
         public TShellCatRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull byte[] fileData, @NonNull Subject<String> listener)
         {
             super(proxy, cmd, timeOut, listener);
+
+            KLog.i(TAG, "---1--->TShellCatRequest");
             this.callBackFilter = callBackFilter;
             this.fileData = fileData;
         }
@@ -371,6 +376,7 @@ public enum TShell
         @Override
         void start(Object[]... args)
         {
+            KLog.i(TAG, "---2--->TShellCatRequest.start");
             catFile();
         }
 

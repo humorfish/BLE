@@ -1,10 +1,10 @@
-package com.ultracreation.blelib.tools;
+package com.ultracreation.blelib.impl;
 
 /**
  * Created by Administrator on 2016/12/4.
  */
 
-interface IService {
+public interface IService {
     boolean initialize();
     void scanDevice(boolean isStart);
     void write(byte[] datas);
