@@ -63,7 +63,7 @@ public class TGapConnection extends IGapConnection
             }
 
             @Override
-            public void onReceiveData(String Line)
+            public void onReceiveData(byte[] Line)
             {
                 mNotification.onReceiveData(Line);
             }

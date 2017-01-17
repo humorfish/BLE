@@ -9,52 +9,52 @@ import java.nio.ByteBuffer;
  */
 public class TLoopBuffer
 {
-    private ByteBuffer _Memory;
-    private int ReadIndex;
-    private int WriteIndex;
+    private ByteBuffer mMemory;
+    private int readIndex;
+    private int writeIndex;
 
     public TLoopBuffer(int size)
     {
-        this.ReadIndex = this.WriteIndex = 0;
+        readIndex = writeIndex = 0;
         if (size < 1024)
             size = 1024;
 
-        this._Memory = ByteBuffer.allocate(size);
+        mMemory = ByteBuffer.allocate(size);
     }
 
     public int size()
     {
-        return _Memory.capacity();
+        return mMemory.capacity();
     }
 
     public int count()
     {
-        return (this.WriteIndex + _Memory.capacity() - this.ReadIndex) % _Memory.capacity();
+        return (writeIndex + mMemory.capacity() - readIndex) % mMemory.capacity();
     }
 
     public int avail()
     {
-        return _Memory.capacity() - count();
+        return mMemory.capacity() - count();
     }
 
     public boolean isEmpty()
     {
-        return this.ReadIndex == this.WriteIndex;
+        return readIndex == writeIndex;
     }
 
     public boolean isFull()
     {
-        return (this.WriteIndex + 1) % _Memory.capacity() == this.ReadIndex;
+        return (writeIndex + 1) % mMemory.capacity() == readIndex;
     }
 
     public byte[] memory()
     {
-        return this._Memory.array();
+        return mMemory.array();
     }
 
     public void clear()
     {
-        this.ReadIndex = this.WriteIndex = 0;
+        readIndex = writeIndex = 0;
     }
 
     public boolean push(@NonNull final byte[] datas, int count)
@@ -67,24 +67,26 @@ public class TLoopBuffer
 
         for (int i = 0; i < count; i++)
         {
-            _Memory.put(WriteIndex, datas[i]);
-            WriteIndex = (this.WriteIndex + 1) % _Memory.capacity();
+            mMemory.put(writeIndex, datas[i]);
+            writeIndex = (writeIndex + 1) % mMemory.capacity();
         }
+        
         return true;
     }
 
     public byte[] extractTo(int extractSize)
     {
-        if (extractSize > this.count())
-            extractSize = this.count();
+        if (extractSize > count())
+            extractSize = count();
 
         byte[] datas = new byte[extractSize];
 
         for (int i = 0; i < extractSize; i++)
         {
-            datas[i] = _Memory.get(ReadIndex);
-            ReadIndex = (ReadIndex + 1) % _Memory.capacity();
+            datas[i] = mMemory.get(readIndex);
+            readIndex = (readIndex + 1) % mMemory.capacity();
         }
+        
         return datas;
     }
 }

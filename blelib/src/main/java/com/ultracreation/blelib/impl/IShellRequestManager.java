@@ -12,6 +12,6 @@ public interface IShellRequestManager
     void removeRequest(TShellRequest request);
     void execute();
     void onError(String message);
-    void onNotification(String message);
+    void onNotification(byte[] datas);
     void clearRequest();
 }

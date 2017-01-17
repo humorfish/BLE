@@ -5,5 +5,5 @@ package com.ultracreation.blelib.impl;
  */
 public interface RequestCallBackFilter
 {
-    boolean onCall(String datas);
+    boolean onCall(byte[] datas);
 }

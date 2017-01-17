@@ -13,26 +13,26 @@ public abstract class IStream
     /**
      *  Stream Basic Operations Read/Write/Seek
      */
-    abstract int Read(byte[] byteArray, int number);
-    abstract int Write(byte[] byteArray, int number);
-    abstract int Seek(int offset, TSeekOrigin oirgin);
+    public abstract byte[] read(byte[] byteArray, int count);
+    public abstract int write(byte[] byteArray, int count);
+    public abstract int seek(int offset, TSeekOrigin oirgin);
 
     /**
      *  Stream Guarantee IO
      */
-    abstract Observable<Integer> ReadBuf(byte[] byteArray, int number);
-    abstract Observable<Integer> WriteBuf(byte[] byteArray, int number);
+    abstract Observable<byte[]> readBuf(byte[] byteArray, int count);
+    abstract Observable<Integer> writeBuf(byte[] byteArray, int count);
 
     /**
      *  Stream Line IO
      */
-    abstract Observable<String> ReadLn();
-    abstract Observable<Integer>  WriteLn(String line);
+    abstract Observable<String> readLn();
+    abstract Observable<Integer>  writeLn(String line);
 
     /**
      *  Stream Properties, implements with getter /setter
      */
-    int Size;
-    int Position;
-    IllegalStateException Endianness;
+    int size;
+    int position;
+    IllegalStateException endianness;
 }

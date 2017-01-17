@@ -8,5 +8,5 @@ public interface INotification{
     void onConnected();
     void onConnectedFailed(String message);
     void onDisconnected();
-    void onReceiveData(String Line);
+    void onReceiveData(byte[] Line);
 }

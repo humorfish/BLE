@@ -13,13 +13,13 @@ import io.reactivex.subjects.Subject;
  */
 public abstract class TShellRequest
 {
-    private Subject<String> listener;
+    private Subject<byte[]> listener;
     private int timeOut;
     private Timer timer;
     private TimerTask timeOutTask;
     protected String cmd;
 
-    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<String> listener)
+    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<byte[]> listener)
     {
         this.cmd = cmd;
         this.timeOut = timeOut;
@@ -28,7 +28,7 @@ public abstract class TShellRequest
 
     abstract void start(Object[]... args);
 
-    abstract void onNotification(String Line);
+    abstract void onNotification(byte[] line);
 
     void refreshTimeout()
     {
@@ -37,7 +37,7 @@ public abstract class TShellRequest
         setTimeout();
     }
 
-    void next(String datas)
+    void next(byte[] datas)
     {
         clearTimeout();
         listener.onNext(datas);

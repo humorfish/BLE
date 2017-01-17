@@ -85,58 +85,58 @@ public enum TShell
         }
     }
 
-    public Subject<String> getVersion()
+    public Subject<byte[]> getVersion()
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ver", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ver", datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> getStatus()
+    public Subject<byte[]> getStatus()
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">stat", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">stat", datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> startOutput()
+    public Subject<byte[]> startOutput()
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osta", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osta", datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> stopOutput()
+    public Subject<byte[]> stopOutput()
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osto", datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">osto", datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> fileMd5(String fileName)
+    public Subject<byte[]> fileMd5(String fileName)
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">md5 " + fileName, datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">md5 " + fileName, datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> catFile(String fileName, byte[] fileData)
+    public Subject<byte[]> catFile(String fileName, byte[] fileData)
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellCatRequest request = new TShellCatRequest(this, ">cat " + fileName + " -l=" + fileData.length, datas -> datas.contains("3:end of cat"), requestTimeOut, fileData, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellCatRequest request = new TShellCatRequest(this, ">cat " + fileName + " -l=" + fileData.length, datas -> new String(datas).contains("3:end of cat"), requestTimeOut, fileData, listener);
         requestStart(request);
         return listener;
     }
 
-    public Subject<String> startScriptFile(String fileName)
+    public Subject<byte[]> startScriptFile(String fileName)
     {
-        Subject<String> listener = PublishSubject.create();
-        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ssta " + fileName, datas -> datas.contains("0: ok"), requestTimeOut, listener);
+        Subject<byte[]> listener = PublishSubject.create();
+        TShellSimpleRequest request = new TShellSimpleRequest(this, ">ssta " + fileName, datas -> new String(datas).contains("0: ok"), requestTimeOut, listener);
         requestStart(request);
         return listener;
     }
@@ -181,9 +181,9 @@ public enum TShell
                     }
 
                     @Override
-                    public void onReceiveData(String Line)
+                    public void onReceiveData(byte[] line)
                     {
-                        requestManager.onNotification(Line);
+                        requestManager.onNotification(line);
                     }
                 });
             } else
@@ -270,13 +270,13 @@ public enum TShell
         }
 
         @Override
-        public void onNotification(String message)
+        public void onNotification(byte[] datas)
         {
             if (currentRequest != null)
             {
                 removeRequest(currentRequest);
                 execute();
-                currentRequest.onNotification(message);
+                currentRequest.onNotification(datas);
             }
         }
 
@@ -304,7 +304,7 @@ public enum TShell
         private TShell proxy;
         private RequestCallBackFilter callBackFilter;
 
-        public TShellSimpleRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull Subject<String> listener)
+        public TShellSimpleRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull Subject<byte[]> listener)
         {
             super(cmd, timeOut, listener);
             this.callBackFilter = callBackFilter;
@@ -321,7 +321,7 @@ public enum TShell
         }
 
         @Override
-        void onNotification(String line)
+        void onNotification(byte[] line)
         {
             if (callBackFilter.onCall(line))
             {
@@ -334,7 +334,7 @@ public enum TShell
     public abstract class TProxyShellRequest extends TShellRequest
     {
         protected TShell proxy;
-        public TProxyShellRequest(@NonNull TShell proxy, @NonNull String cmd, int timeOut, @NonNull Subject<String> listener)
+        public TProxyShellRequest(@NonNull TShell proxy, @NonNull String cmd, int timeOut, @NonNull Subject<byte[]> listener)
         {
             super(cmd, timeOut, listener);
             this.proxy = proxy;
@@ -348,7 +348,7 @@ public enum TShell
         private RequestCallBackFilter callBackFilter;
         private byte[] fileData;
 
-        public TShellCatRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull byte[] fileData, @NonNull Subject<String> listener)
+        public TShellCatRequest(@NonNull TShell proxy, @NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull byte[] fileData, @NonNull Subject<byte[]> listener)
         {
             super(proxy, cmd, timeOut, listener);
 
@@ -381,7 +381,7 @@ public enum TShell
         }
 
         @Override
-        void onNotification(String Line)
+        void onNotification(byte[] Line)
         {
             if (callBackFilter.onCall(Line))
             {

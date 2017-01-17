@@ -2,9 +2,9 @@ package com.ultracreation.blelib.impl;
 
 import com.ultracreation.blelib.bean.TSeekOrigin;
 
+import java.nio.ByteBuffer;
+
 import io.reactivex.Observable;
-import io.reactivex.subjects.PublishSubject;
-import io.reactivex.subjects.Subject;
 
 /**
  * Created by you on 2017/1/16.
@@ -12,48 +12,134 @@ import io.reactivex.subjects.Subject;
 
 public abstract class TStream extends IStream
 {
-    int Seek(TSeekOrigin oirgin, int position)
+    @Override
+    Observable<byte[]> readBuf(byte[] byteArray, int count)
     {
-        return 0;
+        return Observable.create(e ->
+        {
+            int mCount = count;
+            if (mCount > byteArray.length)
+                mCount = byteArray.length;
+
+            if (mCount == 0)
+            {
+                e.onNext(new byte[0]);
+                e.onComplete();
+            } else
+            {
+                byte[] bytes = read(byteArray, count);
+                int readedSize = 0;
+                if (bytes == null || bytes.length <= 0)
+                {
+                    e.onError(new IllegalStateException("empty array"));
+                    return;
+                } else
+                {
+                    readedSize = bytes.length;
+                    e.onNext(bytes);
+                }
+
+                int arrayOffset = 0;
+                ByteBuffer buffer = ByteBuffer.allocate(mCount);
+                while (readedSize < mCount)
+                {
+                    byte[] tmpArrary = buffer.get(byteArray, arrayOffset, readedSize).array();
+                    arrayOffset = readedSize;
+
+                    byte[] readedBytes = read(tmpArrary, mCount - readedSize);
+
+                    if (readedBytes == null || readedBytes.length <= 0)
+                    {
+                        e.onError(new IllegalStateException("empty array"));
+                        return;
+                    }
+
+                    readedSize += readedBytes.length;
+                    e.onNext(readedBytes);
+                }
+
+                e.onComplete();
+            }
+        });
     }
 
-    Observable<Integer> ReadBuf(byte[] byteArray, int count)
+    @Override
+    Observable<Integer> writeBuf(byte[] byteArray, int count)
     {
-        if (count > byteArray.length)
-            count = byteArray.length;
-
-        Subject<Integer> callBack = PublishSubject.create();
-        if (count == 0)
+        return Observable.create(e ->
         {
-            callBack.onNext(0);
-            callBack.onComplete();
-        }
+            int mCount = count;
+            if (mCount > byteArray.length)
+                mCount = byteArray.length;
 
-        int readSize = this.Read(byteArray, count);
-        if (readSize <= 0)
-        {
-            callBack.error(new IllegalStateException());
-        }
-        else
-            callBack.onNext(readSize);
-
-        while (readed < Count)
-        {
-            let View = new Uint8Array(ByteArray.buffer, ByteArray.byteOffset + readed);
-            let reading = this.Read(View, Count - readed);
-
-            if (reading <= 0)
+            if (mCount == 0)
             {
-                callBack.error(new EStreamRead());
-                return;
+                e.onNext(0);
+                e.onComplete();
+            } else
+            {
+                int wroteSize = write(byteArray, mCount);
+                if (wroteSize <= 0)
+                {
+                    e.onError(new IllegalStateException("empty array"));
+                    return;
+                } else
+                    e.onNext(wroteSize);
+
+                int arrayOffset = 0;
+                ByteBuffer buffer = ByteBuffer.allocate(mCount);
+                while (wroteSize < mCount)
+                {
+                    byte[] tmpArrary = buffer.get(byteArray, arrayOffset, wroteSize).array();
+                    arrayOffset = wroteSize;
+
+                    int writting = write(tmpArrary, mCount - wroteSize);
+
+                    if (writting <= 0)
+                    {
+                        e.onError(new IllegalStateException("empty array"));
+                        return;
+                    }
+
+                    wroteSize += writting;
+                    e.onNext(wroteSize);
+                }
+
+                e.onComplete();
             }
+        });
+    }
 
-            readed += reading;
-            callBack.onNext(readed);
-        }
+    @Override
+    Observable<String> readLn()
+    {
+        return Observable.create(e -> e.onError(new IllegalStateException("not implements")));
+    }
 
-        callBack.onComplete();
+    @Override
+    Observable<Integer> writeLn(final String line)
+    {
+        final String LINE_BREAK = "\r\n";
+        byte[] array = (line + LINE_BREAK).getBytes();
+        return writeBuf(array, array.length);
+    }
 
-        return callBack;
+    int size()
+    {
+        int curr = seek(0, TSeekOrigin.FormCurrent);
+        int retval = seek(0, TSeekOrigin.FromEnd) - seek(0, TSeekOrigin.FormBeginning);
+        seek(curr, TSeekOrigin.FormBeginning);
+
+        return retval;
+    }
+
+    int getPosition()
+    {
+        return seek(0, TSeekOrigin.FormCurrent);
+    }
+
+    void setPosition(int position)
+    {
+        seek(position, TSeekOrigin.FormBeginning);
     }
 }

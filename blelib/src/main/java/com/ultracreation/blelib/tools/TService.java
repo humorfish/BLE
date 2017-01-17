@@ -32,6 +32,7 @@ import com.ultracreation.blelib.utils.XLog;
 
 import java.util.UUID;
 
+
 /**
  * Created by you on 2016/12/3.
  */
@@ -40,17 +41,20 @@ public class TService extends Service implements IService
     private final static String TAG = TService.class.getSimpleName();
     private final static int INIT_WRITE_SIZE = 20;
     private final IBinder mBinder = new LocalBinder();
+    private final String LINE_BREAK = "\r\n";
     public int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
-
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private BluetoothGatt mBluetoothGatt;
     private INotification notification;
     private TLoopBuffer mReceiveDataBuffer;
-
     private Handler connectionHandler = new Handler();
 
-
+    private long totalPack = 0;
+    private long sendingTimeoutRecord2 = 0;
+    private TMemoryStream mLineBuffer;
+    private byte[] lineBreakBytes = LINE_BREAK.getBytes();
+    private int lineBreakMatched = 0;
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback()
     {
         @Override
@@ -116,9 +120,6 @@ public class TService extends Service implements IService
         }
     };
 
-    private long totalPack = 0;
-    private long sendingTimeoutRecord2 = 0;
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent)
@@ -169,7 +170,8 @@ public class TService extends Service implements IService
             return false;
         }
 
-        mReceiveDataBuffer = new TLoopBuffer(1000);
+        mReceiveDataBuffer = new TLoopBuffer(1024);
+        mLineBuffer = new TMemoryStream(1024);
         return true;
     }
 
@@ -244,7 +246,32 @@ public class TService extends Service implements IService
 
         if (characteristicUuid.equals(SampleGattAttributes.BODY_TONER_BOLUTEK))
         {
-           
+            // do not inherited, the buffer consumed and notified immdiately
+            mReceiveDataBuffer.push(rawData, rawData.length);
+            byte[] mBytes = new byte[1];
+
+            while (!mReceiveDataBuffer.isEmpty())
+            {
+                mBytes = mReceiveDataBuffer.extractTo(mBytes.length);
+                mLineBuffer.write(mBytes, mBytes.length);
+
+                if (mBytes[0] == lineBreakBytes[lineBreakMatched])
+                {
+                    lineBreakMatched++;
+
+                    if (lineBreakMatched == lineBreakBytes.length)
+                    {
+                        byte[] lineData = new byte[mLineBuffer.mPosition - lineBreakBytes.length];
+                        System.arraycopy(lineData, 0, mLineBuffer.mMemory, 0, lineData.length);
+
+                        onReceiveData(lineData);
+
+                        mLineBuffer.clear();
+                        lineBreakMatched = 0;
+                    }
+                } else
+                    lineBreakMatched = 0;
+            }
         }
     }
 
@@ -359,10 +386,10 @@ public class TService extends Service implements IService
     }
 
     @Override
-    public void onReceiveData(String Line)
+    public void onReceiveData(byte[] line)
     {
         if (notification != null)
-            notification.onReceiveData(Line);
+            notification.onReceiveData(line);
     }
 
     @Override
@@ -370,17 +397,32 @@ public class TService extends Service implements IService
     {
         notification = mINotification;
 
-        if (mBluetoothAdapter == null )
+        if (mBluetoothAdapter == null)
         {
             onConnectedFailed("BLE is not ready");
-        }
-        else
+        } else
         {
             scanDevice(true);
 
-            if (! TextUtils.isEmpty(address))
+            if (!TextUtils.isEmpty(address))
             {
-                connectionHandler.postDelayed(new ConnectionRunnable(address), 1000);
+                connectionHandler.postDelayed(() -> {
+
+                    // TODO:Check if the address is in the gatt source.
+                    final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+                    if (device == null)
+                    {
+                        KLog.e(TAG, "Device not found.  Unable to connect.");
+                        onConnectedFailed("Device not found.  Unable to connect.");
+                        return;
+                    }
+
+                    mBluetoothGatt = device.connectGatt(TService.this, false, mGattCallback);
+                    if (mBluetoothGatt != null)
+                        KLog.e(TAG, "Trying to create a new connection.");
+
+                }, 1000);
+
             } else
                 onConnectedFailed("device id is empty");
         }
@@ -401,32 +443,6 @@ public class TService extends Service implements IService
 //            else
 //                return false;
 //        }
-    }
-
-    private class ConnectionRunnable implements Runnable
-    {
-        private String address;
-        public ConnectionRunnable(String address)
-        {
-            this.address = address;
-        }
-
-        @Override
-        public void run()
-        {
-            // TODO:Check if the address is in the gatt source.
-            final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
-            if (device == null)
-            {
-                KLog.e(TAG, "Device not found.  Unable to connect.");
-                onConnectedFailed("Device not found.  Unable to connect.");
-                return;
-            }
-
-            mBluetoothGatt = device.connectGatt(TService.this, false, mGattCallback);
-            if (mBluetoothGatt != null)
-                KLog.e(TAG, "Trying to create a new connection.");
-        }
     }
 
     protected class LocalBinder extends Binder
