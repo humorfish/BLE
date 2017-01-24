@@ -5,8 +5,6 @@ import android.support.annotation.NonNull;
 import com.ultracreation.blelib.bean.TSeekOrigin;
 import com.ultracreation.blelib.impl.TStream;
 
-import java.nio.ByteBuffer;
-
 /**
  * Created by you on 2017/1/17.
  */
@@ -18,8 +16,8 @@ public class TMemoryStream extends TStream
         if (args instanceof Number)
         {
             int number = (int)args;
-            if (number < 512)
-                number = 512;
+            if (number < 256)
+                number = 256;
 
             mMemory = new byte[number];
             this.mSize = this.mPosition = 0;
@@ -36,40 +34,37 @@ public class TMemoryStream extends TStream
     }
 
     @Override
-    public byte[] read(@NonNull byte[] byteArray, int count)
+    public byte[] read(int count)
     {
-        if (count > byteArray.length)
-            count = byteArray.length;
-
         if (count > this.mSize - this.mPosition)
             count = this.mSize - this.mPosition;
 
         if (count > 0)
         {
-            ByteBuffer buffer = ByteBuffer.allocate(count);
-            byte[] des = buffer.get(mMemory, mPosition, count).array();
+            byte[] des = new byte[count];
+            System.arraycopy(mMemory, mPosition, des, 0, count);
+
             mPosition += count;
             return des;
+
         }else
             return new byte[0];
     }
 
     @Override
-    public int write(byte[] byteArray, int count)
+    public int write(@NonNull byte[] byteArray)
     {
-        if (count > byteArray.length)
-            count = byteArray.length;
+        int count = byteArray.length;
 
         if (count > 0)
         {
             this.Expansion(count);
-            ByteBuffer buffer = ByteBuffer.allocate(count);
-            byte[] des = buffer.get(mMemory, mPosition, count).array();
-            System.arraycopy(des, 0, mMemory, mPosition, des.length);
+            System.arraycopy(byteArray, 0, mMemory, mPosition, count);
 
             this.mPosition += count;
             if (this.mPosition > mSize)
                 mSize = this.mPosition;
+
         }
         return count;
     }
@@ -120,37 +115,14 @@ public class TMemoryStream extends TStream
         System.arraycopy(old, 0, mMemory, 0, old.length);
     }
 
-    int getCapacity()
+    int capacity()
     {
         return mMemory.length;
     }
 
-
     void clear()
     {
         mSize = mPosition = 0;
-    }
-
-    /**
-     *  Memory Property is violatile
-     */
-    byte[] getMemory()
-    {
-        return mMemory;
-    }
-
-    /**
-     *  MemoryView Property is violatile
-     */
-    byte[] getMemoryView()
-    {
-        ByteBuffer buffer = ByteBuffer.allocate(mSize);
-        return buffer.get(mMemory, 0, mSize).array();
-    }
-
-    int getSize()
-    {
-        return mSize;
     }
 
     protected byte[] mMemory;

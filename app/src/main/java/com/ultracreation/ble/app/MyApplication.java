@@ -2,7 +2,7 @@ package com.ultracreation.ble.app;
 
 import android.app.Application;
 
-import com.ultracreation.blelib.tools.TShell;
+import com.ultracreation.blelib.tools.TService;
 
 /**
  * Created by Administrator on 2016/12/13.
@@ -14,11 +14,11 @@ public class MyApplication extends Application {
     public void onCreate()
     {
         super.onCreate();
-        TShell.Shell.bindBluetoothSevice(this);
+        TService.Instance.bindBluetoothSevice(this);
     }
 
     public void releaseBinding()
     {
-        TShell.Shell.unBindBluetoothSevice();
+        TService.Instance.unBindBluetoothSevice(this);
     }
 }

@@ -1,5 +1,7 @@
 package com.ultracreation.blelib.impl;
 
+import android.support.annotation.NonNull;
+
 import com.ultracreation.blelib.bean.TSeekOrigin;
 
 import io.reactivex.Observable;
@@ -13,8 +15,8 @@ public abstract class IStream
     /**
      *  Stream Basic Operations Read/Write/Seek
      */
-    public abstract byte[] read(byte[] byteArray, int count);
-    public abstract int write(byte[] byteArray, int count);
+    public abstract byte[] read(int count);
+    public abstract int write(@NonNull byte[] byteArray);
     public abstract int seek(int offset, TSeekOrigin oirgin);
 
     /**

@@ -25,6 +25,7 @@ public class MainActivity extends AppCompatActivity
 {
     private final static String TAG = MainActivity.class.getSimpleName();
     private final int REQUEST_ENABLE_BT = 1;
+    private TShell shell;
 
     @BindView(R.id.ver_text)
     Button ver_text;
@@ -52,7 +53,7 @@ public class MainActivity extends AppCompatActivity
                     return true;
                 else
                 {
-                    for (int i=1; i<filters.length; i++)
+                    for (int i = 1; i < filters.length; i++)
                     {
                         if (filters[i].equals(lowerCaseName))
                             return true;
@@ -63,17 +64,20 @@ public class MainActivity extends AppCompatActivity
             }
         }, bleDevice -> {
             TGattScaner.Scaner.stop();
+            shell = new TShell(bleDevice.device.getAddress());
 
-            TShell.Shell.start(bleDevice.device.getAddress());
-            TShell.Shell.getVersion().subscribe(s ->
-                {
-                    KLog.i(TAG, "versionRequest.ver:" + s);
-                    TShell.Shell.startOutput().subscribe(s1 -> KLog.i(TAG, "startOutPut:" + s), error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage()));
-                }, error ->
-                {
-                    KLog.i(TAG, "versionRequest.error:" + error.getMessage());
-                });
-
+            shell.connect();
+            shell.getVersion().subscribe(s ->
+            {
+                KLog.i(TAG, "versionRequest.ver:" + new String(s));
+                shell.startOutput().subscribe(
+                        s1 -> KLog.i(TAG, "startOutPut:" + new String(s1)),
+                        error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage())
+                );
+            }, error ->
+            {
+                KLog.i(TAG, "versionRequest.error:" + error.getMessage());
+            });
         });
     }
 
@@ -83,9 +87,9 @@ public class MainActivity extends AppCompatActivity
         switch (v.getId())
         {
             case R.id.ver_text:
-                TShell.Shell.getVersion().subscribe(s ->
-                        KLog.i(TAG, "onClick.versionRequest.ver:" + s), error ->
-                        KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
+                shell.getVersion().subscribe(
+                        s -> KLog.i(TAG, "onClick.versionRequest.ver:" + new String(s)),
+                        error -> KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
                 break;
             case R.id.model_text:
                 sentFile();
@@ -102,9 +106,17 @@ public class MainActivity extends AppCompatActivity
             String fileName = "pain.lok";
 
             byte[] fileData = getFileDatas(fileName);
-            TShell.Shell.catFile(fileName, fileData).subscribe(s ->
-                    KLog.i(TAG, "onClick.versionRequest.ver:" + s), error ->
-                    KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
+            shell.stopOutput().subscribe(
+                    bytes ->
+                    {
+                        shell.catFile(fileName, fileData).subscribe(
+                                progress -> KLog.i(TAG, "onClick.versionRequest.catFile.progress:" + progress),
+                                err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
+                        );
+                    },
+                    err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
+            );
+
         }).start();
     }
 
@@ -121,9 +133,11 @@ public class MainActivity extends AppCompatActivity
         } catch (IOException e)
         {
             e.printStackTrace();
-        }finally
+
+        } finally
         {
             if (fileIn != null)
+            {
                 try
                 {
                     fileIn.close();
@@ -132,6 +146,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     e.printStackTrace();
                 }
+            }
         }
 
         return new byte[0];
@@ -146,6 +161,7 @@ public class MainActivity extends AppCompatActivity
             if (resultCode == RESULT_OK)
             {
                 Toast.makeText(this, "蓝牙已经开启", Toast.LENGTH_SHORT).show();
+                TGattScaner.Scaner.reStart();
             } else
             {
                 Toast.makeText(this, "不允许蓝牙开启", Toast.LENGTH_SHORT).show();
@@ -159,6 +175,6 @@ public class MainActivity extends AppCompatActivity
     {
         super.onDestroy();
         TGattScaner.Scaner.stop();
-        TShell.Shell.stop();
+        shell.disconnect();
     }
 }

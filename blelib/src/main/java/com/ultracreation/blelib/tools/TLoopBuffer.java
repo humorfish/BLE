@@ -16,8 +16,8 @@ public class TLoopBuffer
     public TLoopBuffer(int size)
     {
         readIndex = writeIndex = 0;
-        if (size < 1024)
-            size = 1024;
+        if (size < 512)
+            size = 512;
 
         mMemory = ByteBuffer.allocate(size);
     }

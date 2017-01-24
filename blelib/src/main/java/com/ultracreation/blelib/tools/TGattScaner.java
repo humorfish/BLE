@@ -71,6 +71,18 @@ public enum TGattScaner
         }
     }
 
+    public void reStart()
+    {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null)
+            error("ble not support");
+        else
+        {
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+        }
+    }
+
     public void stop()
     {
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();

@@ -13,5 +13,5 @@ public interface IShellRequestManager
     void execute();
     void onError(String message);
     void onNotification(byte[] datas);
-    void clearRequest();
+    void clear();
 }

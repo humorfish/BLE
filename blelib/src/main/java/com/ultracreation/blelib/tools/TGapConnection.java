@@ -3,12 +3,18 @@ package com.ultracreation.blelib.tools;
 import android.bluetooth.BluetoothProfile;
 import android.support.annotation.NonNull;
 
-import com.ultracreation.blelib.impl.INotification;
+import com.ultracreation.blelib.impl.IShellRequestManager;
+import com.ultracreation.blelib.impl.RequestCallBackFilter;
 import com.ultracreation.blelib.utils.KLog;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.LinkedList;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import io.reactivex.Observable;
+import io.reactivex.subjects.Subject;
 
 /**
  * Created by Administrator on 2016/12/19.
@@ -17,130 +23,273 @@ import java.util.TimerTask;
 public class TGapConnection extends IGapConnection
 {
     private String TAG = TGapConnection.class.getSimpleName();
-    private int connectTimeOut = 10000;
+    protected int requestTimeout = 3000;
+    private TShellRequestManager requestManager;
 
-    private INotification mNotification;
-    private TService mSevice;
-
-    private Timer timer;
-    private TimerTask timeOutTask;
-
-    public TGapConnection(@NonNull String deviceId, @NonNull TService mSevice, @NonNull INotification mNotification)
+    public TGapConnection(@NonNull String deviceId)
     {
-        this.deviceId = deviceId;
-        this.mSevice = mSevice;
-        this.mNotification = mNotification;
-
-        this.connect();
+        super(deviceId);
+        requestManager = new TShellRequestManager();
     }
 
     @Override
-    void connect()
+    void start()
     {
-        KLog.i(TAG, "-----2--->");
+        requestManager.execute();
+    }
 
-        refreshTimeOut();
-        this.mSevice.makeConnection(deviceId, new INotification()
+    @Override
+    void addRequest(TShellRequest request)
+    {
+        requestManager.addRequest(request);
+    }
+
+    @Override
+    void writeCmd(String cmd)
+    {
+        if (TService.Instance.mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
-            @Override
-            public void onConnected()
-            {
-                clearTimeout();
-                mNotification.onConnected();
-            }
+            cmd = cmd + "\r\n";
+            TService.Instance.mSevice.write(cmd.getBytes(), null);
+        }
+    }
 
-            @Override
-            public void onConnectedFailed(String message)
+    @Override
+    Observable<Integer> writeBuf(byte[] buf)
+    {
+        return Observable.create(e ->
+        {
+            if (TService.Instance.mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
             {
-                clearTimeout();
-                mNotification.onConnectedFailed(message);
-            }
+                TService.Instance.mSevice.write(buf, e);
 
-            @Override
-            public void onDisconnected()
-            {
-                mNotification.onDisconnected();
-            }
-
-            @Override
-            public void onReceiveData(byte[] Line)
-            {
-                mNotification.onReceiveData(Line);
-            }
+            } else
+                e.onError(new IllegalStateException("not connected"));
         });
     }
 
     @Override
-    void disconnect()
+    void receivedData(byte[] line)
     {
-        if (isConnected())
-            mSevice.disconnect();
+        KLog.i(TAG, "onReceiveData.line:" + new String(line));
+        requestManager.onNotification(line);
     }
 
     @Override
-    boolean isConnected()
+    void destory()
     {
-        return mSevice.isConnected(deviceId);
+        requestManager.clear();
     }
 
-    @Override
-    void write(String cmd)
+    private class TShellRequestManager implements IShellRequestManager
     {
-        if (mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
+        private LinkedList<TShellRequest> requests;
+        private TShellRequest currentRequest;
+
+        public TShellRequestManager()
         {
-            cmd = cmd + "\r\n";
-            mSevice.write(cmd.getBytes());
+            requests = new LinkedList<>();
         }
-    }
 
-    @Override
-    void writeNoResponse(byte[] buf)
-    {
-        if (mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
-            mSevice.write(buf);
-    }
-
-    private void refreshTimeOut()
-    {
-        clearTimeout();
-
-        setTimeout();
-    }
-
-    /// @override
-    private void error(String message)
-    {
-        clearTimeout();
-        mNotification.onConnectedFailed(message);
-    }
-
-    private void setTimeout()
-    {
-        timeOutTask = new TimerTask()
+        @Override
+        public void addRequest(TShellRequest request)
         {
-            @Override
-            public void run()
+            requests.add(request);
+            KLog.i(TAG, "addRequest.size:" + requests.size());
+        }
+
+        @Override
+        public void removeRequest(TShellRequest request)
+        {
+            request.clearTimeout();
+            if (requests.size() > 0)
+                requests.removeFirst();
+            KLog.i(TAG, "removeRequest.size:" + requests.size());
+        }
+
+        @Override
+        public void execute()
+        {
+            if (requests.size() > 0)
             {
-                error("connect time out");
+                if (requests.peekFirst() != currentRequest)
+                {
+                    currentRequest = requests.peekFirst();
+                    currentRequest.start();
+                }
             }
-        };
-
-        timer = new Timer();
-        timer.schedule(timeOutTask, connectTimeOut);
-    }
-
-    private void clearTimeout()
-    {
-        if (timeOutTask != null)
-        {
-            timeOutTask.cancel();
-            timeOutTask = null;
         }
 
-        if (timer != null)
+        @Override
+        public void onError(String message)
         {
-            timer.cancel();
-            timer = null;
+            if (currentRequest != null)
+            {
+                removeRequest(currentRequest);
+                currentRequest.onError(message);
+            }
+        }
+
+        @Override
+        public void onNotification(byte[] datas)
+        {
+            if (currentRequest != null)
+            {
+                removeRequest(currentRequest);
+                execute();
+                currentRequest.onNotification(datas);
+            }
+        }
+
+        @Override
+        public void clear()
+        {
+            if (currentRequest != null)
+            {
+                currentRequest.clearTimeout();
+                currentRequest = null;
+            }
+
+            requests.clear();
+        }
+    }
+
+    /* TShellSimpleRequest */
+
+    /**
+     * the request narrow to 1 ack 1 answer simple request
+     */
+
+    public class TShellSimpleRequest extends TShellRequest
+    {
+        private RequestCallBackFilter callBackFilter;
+
+        public TShellSimpleRequest(@NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull Subject<byte[]> listener)
+        {
+            super(cmd, timeOut, listener);
+            this.callBackFilter = callBackFilter;
+        }
+
+        @Override
+        void start()
+        {
+            refreshTimeout();
+            writeCmd(cmd);
+        }
+
+        @Override
+        void onNotification(byte[] line)
+        {
+            if (callBackFilter.onCall(line))
+            {
+                onNext(line);
+                onComplete();
+            }
+        }
+    }
+
+    public abstract class TProxyShellRequest<T> extends TShellRequest
+    {
+        public TProxyShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<T> listener)
+        {
+            super(cmd, timeOut, listener);
+        }
+
+        abstract void catFile();
+    }
+
+    public class TShellCatRequest<T> extends TProxyShellRequest
+    {
+        private long lastCallBackTime = 0;
+        private long CAT_TIMEOUT = 3000;
+
+        private RequestCallBackFilter callBackFilter;
+        private byte[] fileData;
+
+        public TShellCatRequest(@NonNull String cmd, @NonNull RequestCallBackFilter callBackFilter, int timeOut, @NonNull byte[] fileData, @NonNull Subject<T> listener)
+        {
+            super(cmd, timeOut, listener);
+
+            this.callBackFilter = callBackFilter;
+            this.fileData = fileData;
+            long flushTime = (long)(2.4*fileData.length);
+            if (flushTime > CAT_TIMEOUT)
+                CAT_TIMEOUT = flushTime;
+        }
+
+        @Override
+        void catFile()
+        {
+            lastCallBackTime = System.currentTimeMillis();
+            refreshTimeout();
+
+            writeCmd(cmd);
+            writeBuf(fileData).subscribe(
+                progress ->
+                {
+                    KLog.i(TAG, "progress:" + progress);
+                    SimpleDateFormat formatter = new SimpleDateFormat ("yyyy年MM月dd日 HH:mm:ss ");
+                    Date lastDate = new Date(lastCallBackTime);//获取当前时间
+                    String lastTime = formatter.format(lastDate);
+                    KLog.i(TAG, "lastTime:"  + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
+                    lastCallBackTime = System.currentTimeMillis();
+
+                    if (progress == 100)
+                        onNext(99);
+                    else
+                        onNext(progress);
+                },
+                err -> onError(err.getMessage()));
+        }
+
+        @Override
+        void start()
+        {
+            catFile();
+        }
+
+        @Override
+        void onNotification(byte[] line)
+        {
+            if (callBackFilter.onCall(line))
+            {
+                onNext(100);
+                onComplete();
+            }
+        }
+
+        @Override
+        void refreshTimeout()
+        {
+            clearTimeout();
+            setTimeout();
+        }
+
+        @Override
+        void setTimeout()
+        {
+            timeOutTask = new TimerTask()
+            {
+                @Override
+                public void run()
+                {
+                    SimpleDateFormat formatter = new SimpleDateFormat ("yyyy年MM月dd日 HH:mm:ss ");
+                    Date lastDate = new Date(lastCallBackTime);//获取当前时间
+                    String lastTime = formatter.format(lastDate);
+                    KLog.i(TAG, "lastTime:"  + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
+
+                    if (System.currentTimeMillis() - lastCallBackTime > CAT_TIMEOUT)
+                        onError(cmd + " request time out");
+                    else
+                    {
+                        lastCallBackTime = System.currentTimeMillis();
+                        refreshTimeout();
+                    }
+                }
+            };
+
+            timer = new Timer();
+            timer.schedule(timeOutTask, CAT_TIMEOUT);
         }
     }
 }

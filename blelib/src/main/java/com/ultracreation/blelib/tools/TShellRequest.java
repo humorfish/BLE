@@ -4,29 +4,28 @@ import android.support.annotation.NonNull;
 
 import java.util.Timer;
 import java.util.TimerTask;
-
 import io.reactivex.subjects.Subject;
 
 
 /**
  * Created by you on 2016/12/7.
  */
-public abstract class TShellRequest
+public abstract class TShellRequest<T>
 {
-    private Subject<byte[]> listener;
-    private int timeOut;
-    private Timer timer;
-    private TimerTask timeOutTask;
+    protected Subject<T> listener;
+    protected int timeOut;
+    protected Timer timer;
+    protected TimerTask timeOutTask;
     protected String cmd;
 
-    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<byte[]> listener)
+    public TShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<T> listener)
     {
         this.cmd = cmd;
         this.timeOut = timeOut;
         this.listener = listener;
     }
 
-    abstract void start(Object[]... args);
+    abstract void start();
 
     abstract void onNotification(byte[] line);
 
@@ -37,21 +36,24 @@ public abstract class TShellRequest
         setTimeout();
     }
 
-    void next(byte[] datas)
+    void onNext(T datas)
+    {
+        listener.onNext(datas);
+    }
+
+    void onComplete()
     {
         clearTimeout();
-        listener.onNext(datas);
         listener.onComplete();
     }
 
-    /// @override
-    void error(String message)
+    void onError(String message)
     {
         clearTimeout();
         listener.onError(new IllegalStateException(message));
     }
 
-    private void setTimeout()
+    void setTimeout()
     {
         if (timeOut == 0)
             return;
@@ -61,7 +63,7 @@ public abstract class TShellRequest
             @Override
             public void run()
             {
-                error(cmd + " request time out");
+                onError(cmd + " request time out");
             }
         };
 

@@ -27,7 +27,7 @@ public abstract class TStream extends IStream
                 e.onComplete();
             } else
             {
-                byte[] bytes = read(byteArray, count);
+                byte[] bytes = read(count);
                 int readedSize = 0;
                 if (bytes == null || bytes.length <= 0)
                 {
@@ -39,14 +39,9 @@ public abstract class TStream extends IStream
                     e.onNext(bytes);
                 }
 
-                int arrayOffset = 0;
-                ByteBuffer buffer = ByteBuffer.allocate(mCount);
                 while (readedSize < mCount)
                 {
-                    byte[] tmpArrary = buffer.get(byteArray, arrayOffset, readedSize).array();
-                    arrayOffset = readedSize;
-
-                    byte[] readedBytes = read(tmpArrary, mCount - readedSize);
+                    byte[] readedBytes = read(mCount - readedSize);
 
                     if (readedBytes == null || readedBytes.length <= 0)
                     {
@@ -78,7 +73,7 @@ public abstract class TStream extends IStream
                 e.onComplete();
             } else
             {
-                int wroteSize = write(byteArray, mCount);
+                int wroteSize = write(byteArray);
                 if (wroteSize <= 0)
                 {
                     e.onError(new IllegalStateException("empty array"));
@@ -93,7 +88,7 @@ public abstract class TStream extends IStream
                     byte[] tmpArrary = buffer.get(byteArray, arrayOffset, wroteSize).array();
                     arrayOffset = wroteSize;
 
-                    int writting = write(tmpArrary, mCount - wroteSize);
+                    int writting = write(tmpArrary);
 
                     if (writting <= 0)
                     {
