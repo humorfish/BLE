@@ -23,7 +23,6 @@ import io.reactivex.subjects.Subject;
 public class TGapConnection extends IGapConnection
 {
     private String TAG = TGapConnection.class.getSimpleName();
-    protected int requestTimeout = 3000;
     private TShellRequestManager requestManager;
 
     public TGapConnection(@NonNull String deviceId)
@@ -47,10 +46,10 @@ public class TGapConnection extends IGapConnection
     @Override
     void writeCmd(String cmd)
     {
-        if (TService.Instance.mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
+        if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
             cmd = cmd + "\r\n";
-            TService.Instance.mSevice.write(cmd.getBytes(), null);
+            TService.Instance.mSevice.write(deviceId, cmd.getBytes(), null);
         }
     }
 
@@ -59,9 +58,9 @@ public class TGapConnection extends IGapConnection
     {
         return Observable.create(e ->
         {
-            if (TService.Instance.mSevice.mConnectionState == BluetoothProfile.STATE_CONNECTED)
+            if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
             {
-                TService.Instance.mSevice.write(buf, e);
+                TService.Instance.mSevice.write(deviceId, buf, e);
 
             } else
                 e.onError(new IllegalStateException("not connected"));
@@ -154,13 +153,11 @@ public class TGapConnection extends IGapConnection
         }
     }
 
-    /* TShellSimpleRequest */
-
     /**
      * the request narrow to 1 ack 1 answer simple request
      */
 
-    public class TShellSimpleRequest extends TShellRequest
+    class TShellSimpleRequest extends TShellRequest
     {
         private RequestCallBackFilter callBackFilter;
 
@@ -188,7 +185,7 @@ public class TGapConnection extends IGapConnection
         }
     }
 
-    public abstract class TProxyShellRequest<T> extends TShellRequest
+    private abstract class TProxyShellRequest<T> extends TShellRequest
     {
         public TProxyShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<T> listener)
         {

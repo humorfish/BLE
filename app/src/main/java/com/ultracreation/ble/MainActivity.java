@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity
 
                 return false;
             }
+
         }, bleDevice -> {
             TGattScaner.Scaner.stop();
             shell = new TShell(bleDevice.device.getAddress());
@@ -74,6 +75,7 @@ public class MainActivity extends AppCompatActivity
                         s1 -> KLog.i(TAG, "startOutPut:" + new String(s1)),
                         error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage())
                 );
+
             }, error ->
             {
                 KLog.i(TAG, "versionRequest.error:" + error.getMessage());
@@ -91,9 +93,11 @@ public class MainActivity extends AppCompatActivity
                         s -> KLog.i(TAG, "onClick.versionRequest.ver:" + new String(s)),
                         error -> KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
                 break;
+
             case R.id.model_text:
                 sentFile();
                 break;
+
             default:
                 break;
         }
@@ -130,6 +134,7 @@ public class MainActivity extends AppCompatActivity
             fileIn.read(fileData);
 
             return fileData;
+
         } catch (IOException e)
         {
             e.printStackTrace();
@@ -142,6 +147,7 @@ public class MainActivity extends AppCompatActivity
                 {
                     fileIn.close();
                     fileIn = null;
+
                 } catch (IOException e)
                 {
                     e.printStackTrace();
@@ -162,6 +168,7 @@ public class MainActivity extends AppCompatActivity
             {
                 Toast.makeText(this, "蓝牙已经开启", Toast.LENGTH_SHORT).show();
                 TGattScaner.Scaner.reStart();
+
             } else
             {
                 Toast.makeText(this, "不允许蓝牙开启", Toast.LENGTH_SHORT).show();

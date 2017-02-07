@@ -1,5 +1,6 @@
 package com.ultracreation.blelib.tools;
 
+import android.bluetooth.BluetoothProfile;
 import android.support.annotation.NonNull;
 
 import com.ultracreation.blelib.impl.IConnectionManager;
@@ -17,11 +18,22 @@ public enum TConnectionManager implements IConnectionManager
     ConnectionManager;
 
     private final static String TAG = TConnectionManager.class.getSimpleName();
+
     private Map<String, TGapConnection> mConnectionList;
 
     TConnectionManager()
     {
         mConnectionList = new HashMap<>();
+        TService.Instance.mSevice.getDisconnectListenter().subscribe(deviceId -> mConnectionList.remove(deviceId));
+    }
+
+    @Override
+    public TGapConnection getConnection(@NonNull String deviceId)
+    {
+        if (isConnected(deviceId))
+            return mConnectionList.get(deviceId);
+        else
+            return connect(deviceId);
     }
 
     @Override
@@ -38,14 +50,16 @@ public enum TConnectionManager implements IConnectionManager
     }
 
     @Override
-    public void connect(@NonNull String deviceId)
+    public TGapConnection connect(@NonNull String deviceId)
     {
+        TGapConnection connection = new TGapConnection(deviceId);
+
         TService.Instance.mSevice.makeConnection(deviceId, new INotification()
         {
             @Override
             public void onConnected(String deviceId)
             {
-                TGapConnection connection = new TGapConnection(deviceId);
+                connection.mConnectionState = BluetoothProfile.STATE_CONNECTED;
                 mConnectionList.put(deviceId, connection);
                 connection.start();
             }
@@ -53,6 +67,7 @@ public enum TConnectionManager implements IConnectionManager
             @Override
             public void onConnectedFailed(String deviceId, String message)
             {
+                connection.mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
                 mConnectionList.remove(deviceId);
             }
 
@@ -64,7 +79,7 @@ public enum TConnectionManager implements IConnectionManager
                     TGapConnection connection = mConnectionList.get(deviceId);
                     connection.destory();
                 }
-
+                connection.mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
                 mConnectionList.remove(deviceId);
             }
 
@@ -78,6 +93,8 @@ public enum TConnectionManager implements IConnectionManager
                 }
             }
         });
+
+        return connection;
     }
 
     @Override

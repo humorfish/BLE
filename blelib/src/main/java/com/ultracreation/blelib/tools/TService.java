@@ -34,9 +34,13 @@ import com.ultracreation.blelib.impl.INotification;
 import com.ultracreation.blelib.impl.IService;
 import com.ultracreation.blelib.utils.KLog;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import io.reactivex.ObservableEmitter;
+import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.Subject;
 
 import static android.bluetooth.BluetoothProfile.GATT_SERVER;
 
@@ -107,10 +111,11 @@ public enum  TService
         private final static int INIT_WRITE_SIZE = 20;
         private final IBinder mBinder = new LocalBinder();
         private final String LINE_BREAK = "\r\n";
-        public int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+        private Map<String, BluetoothGatt> mGattList;
         private BluetoothManager mBluetoothManager;
         private BluetoothAdapter mBluetoothAdapter;
-        private BluetoothGatt mBluetoothGatt;
+
+        private Subject<String> disconnectListenter;
         private INotification notification;
         private Handler connectionHandler = new Handler();
 
@@ -126,10 +131,10 @@ public enum  TService
                 if (newState == BluetoothProfile.STATE_CONNECTED)
                 {
                     KLog.i(TAG, "Connected to GATT server.");
-                    mBluetoothGatt.discoverServices();
+                    gatt.discoverServices();
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED)
                 {
-                    setupGattServices(false);
+                    setupGattServices(gatt, false);
                     gatt.disconnect();
                     gatt.close();
 
@@ -142,7 +147,7 @@ public enum  TService
             {
                 super.onServicesDiscovered(gatt, status);
                 if (status == BluetoothGatt.GATT_SUCCESS)
-                    setupGattServices(true);
+                    setupGattServices(gatt, true);
                 else
                     KLog.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -153,7 +158,7 @@ public enum  TService
                 if (BluetoothGatt.GATT_SUCCESS == status)
                 {
                     KLog.v(TAG, "Callback: Wrote GATT Descriptor successfully.");
-                    onConnected(gatt.getDevice().getAddress());
+                    onConnected(gatt);
                 } else
                     KLog.v(TAG, "Callback: Error writing GATT Descriptor: " + status);
             }
@@ -200,15 +205,6 @@ public enum  TService
             return super.onUnbind(intent);
         }
 
-        private void disconnectAll() //需要重写
-        {
-            if (mBluetoothGatt != null)
-            {
-                String deviceId = mBluetoothGatt.getDevice().getAddress();
-                disconnect(deviceId);
-            }
-        }
-
         @Override
         public void onDestroy()
         {
@@ -244,6 +240,8 @@ public enum  TService
 
             mReceiveDataBuffer = new TLoopBuffer(512);
             mLineBuffer = new TMemoryStream(256);
+            mGattList = new HashMap<>();
+            disconnectListenter = PublishSubject.create();
             return true;
         }
 
@@ -260,20 +258,20 @@ public enum  TService
             }
         }
 
-        private void setupGattServices(boolean isStop)
+        private void setupGattServices(BluetoothGatt gatt, boolean isStop)
         {
-            if (mBluetoothAdapter == null || mBluetoothGatt == null)
+            if (mBluetoothAdapter == null || gatt == null)
             {
                 Log.w(TAG, "BluetoothAdapter not initialized");
                 return;
             }
 
             final BluetoothGattCharacteristic readCharacteristic = getCharacteristicByUuid(
-                    mBluetoothGatt, SampleGattAttributes.SERVICE_BOLUTEK,
+                    gatt, SampleGattAttributes.SERVICE_BOLUTEK,
                     SampleGattAttributes.BODY_TONER_BOLUTEK);
             if (null != readCharacteristic)
             {
-                setCharacteristicNotification(readCharacteristic, isStop);
+                setCharacteristicNotification(gatt, readCharacteristic, isStop);
             }
         }
 
@@ -290,22 +288,22 @@ public enum  TService
             return characteristic;
         }
 
-        public void setCharacteristicNotification(BluetoothGattCharacteristic characteristic, boolean enabled)
+        public void setCharacteristicNotification(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, boolean enabled)
         {
-            if (mBluetoothAdapter == null || mBluetoothGatt == null)
+            if (mBluetoothAdapter == null || gatt == null)
             {
                 Log.w(TAG, "BluetoothAdapter not initialized");
                 return;
             }
 
-            mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+            gatt.setCharacteristicNotification(characteristic, enabled);
             // This is specific to Heart Rate Measurement.
             if (SampleGattAttributes.BODY_TONER_WRITE.equals(characteristic.getUuid()))
             {
                 BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
                         SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG);
                 descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
-                mBluetoothGatt.writeDescriptor(descriptor);
+                gatt.writeDescriptor(descriptor);
             }
         }
 
@@ -349,18 +347,11 @@ public enum  TService
             }
         }
 
-        private boolean writeDataDirect(BluetoothGattCharacteristic characteristic, byte[] data, ObservableEmitter<Integer> progress)
+        private boolean writeDataDirect(String deviceId, BluetoothGattCharacteristic characteristic, byte[] data, ObservableEmitter<Integer> progress)
         {
-            if (mBluetoothGatt == null)
-            {
-                if (progress != null)
-                    progress.onError(new IllegalStateException("not connected"));
-
-                return false;
-            }
-
             int sendedLength = 0;
             int currenSendLength;
+            BluetoothGatt mBluetoothGatt = mGattList.get(deviceId);
 
             boolean b = false;
             while (sendedLength < data.length)
@@ -370,7 +361,7 @@ public enum  TService
                 else
                     currenSendLength = data.length - sendedLength;
 
-                if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
+                if (mGattList.containsKey(deviceId))
                 {
                     byte[] sendData = new byte[currenSendLength];
                     System.arraycopy(data, sendedLength, sendData, 0, currenSendLength);
@@ -399,7 +390,7 @@ public enum  TService
 
                     SystemClock.sleep(20);
 
-                }else
+                } else
                     return false;
             }
 
@@ -413,47 +404,47 @@ public enum  TService
         }
 
         @Override
-        public void write(byte[] datas, ObservableEmitter<Integer> progress)
+        public void write(String deviceId, byte[] datas, ObservableEmitter<Integer> progress)
         {
             KLog.i(TAG, "service.write:" + new String(datas));
-            if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
+            BluetoothGatt mBluetoothGatt = mGattList.get(deviceId);
+
+            if (mGattList.containsKey(deviceId))
             {
                 final BluetoothGattCharacteristic findCharacteristic = getCharacteristicByUuid(
                         mBluetoothGatt, SampleGattAttributes.SERVICE_BOLUTEK,
                         SampleGattAttributes.BODY_TONER_WRITE);
 
                 if (null != findCharacteristic)
-                    writeDataDirect(findCharacteristic, datas, progress);
+                    writeDataDirect(deviceId, findCharacteristic, datas, progress);
             }
         }
 
         @Override
         public void disconnect(String deviceId)
         {
-            if (mBluetoothGatt != null)
+            BluetoothGatt mGatt = mGattList.get(deviceId);
+            if (mGatt != null)
             {
-                mBluetoothGatt.disconnect();
-                mBluetoothGatt.close();
-                mBluetoothGatt = null;
+                mGatt.disconnect();
+                mGatt.close();
             }
-
-            mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
         }
 
         @Override
-        public void onConnected(String deviceId)
+        public void onConnected(@NonNull BluetoothGatt gatt)
         {
-            mConnectionState = BluetoothProfile.STATE_CONNECTED;
+            mGattList.put(gatt.getDevice().getAddress(), gatt);
+
             scanDevice(false);
 
             if (notification != null)
-                notification.onConnected(deviceId);
+                notification.onConnected(gatt.getDevice().getAddress());
         }
 
         @Override
         public void onConnectedFailed(String deviceId, String message)
         {
-            mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
             scanDevice(false);
 
             if (notification != null)
@@ -463,9 +454,8 @@ public enum  TService
         @Override
         public void onDisconnected(String deviceId)
         {
-            KLog.i(TAG, "onDisconnected:mConnectionState" + mConnectionState);
-
-            mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
+            mGattList.remove(deviceId);
+            disconnectListenter.onNext(deviceId);
             scanDevice(false);
 
             if (notification != null)
@@ -504,7 +494,7 @@ public enum  TService
                             return;
                         }
 
-                        mBluetoothGatt = device.connectGatt(BLEService.this, false, mGattCallback);
+                        BluetoothGatt mBluetoothGatt = device.connectGatt(BLEService.this, false, mGattCallback);
                         if (mBluetoothGatt != null)
                             KLog.e(TAG, "Trying to create a new connection.");
 
@@ -515,20 +505,33 @@ public enum  TService
             }
         }
 
-        public boolean isConnected(String address)
+        public void disconnectAll() //需要重写
         {
-            //return mConnectionState == BluetoothProfile.STATE_CONNECTED;
-            final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(address);
+            for (Map.Entry<String, BluetoothGatt> entry : mGattList.entrySet())
+            {
+                String deviceId = entry.getKey();
+                disconnect(deviceId);
+            }
+        }
+
+        public boolean isConnected(String deviceId)
+        {
+            final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(deviceId);
             if (device == null)
             {
                 return false;
             } else
             {
-                if (mBluetoothGatt != null && mBluetoothManager.getConnectionState(device, GATT_SERVER) == BluetoothProfile.STATE_CONNECTED)
+                if (mGattList.containsKey(deviceId) && mBluetoothManager.getConnectionState(device, GATT_SERVER) == BluetoothProfile.STATE_CONNECTED)
                     return true;
                 else
                     return false;
             }
+        }
+
+        public Subject<String> getDisconnectListenter()
+        {
+            return disconnectListenter;
         }
 
         protected class LocalBinder extends Binder

@@ -1,5 +1,6 @@
 package com.ultracreation.blelib.tools;
 
+import android.bluetooth.BluetoothProfile;
 import android.support.annotation.NonNull;
 
 import java.util.Timer;
@@ -17,6 +18,13 @@ public abstract class IGapConnection
     private Timer timer;
     private TimerTask timeOutTask;
     private int connectTimeout = 10000;
+
+    public void setmConnectionState(int mConnectionState)
+    {
+        this.mConnectionState = mConnectionState;
+    }
+
+    protected int mConnectionState = BluetoothProfile.STATE_DISCONNECTED;
 
     public IGapConnection(@NonNull String deviceId)
     {
