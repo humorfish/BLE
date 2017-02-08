@@ -89,9 +89,12 @@ public class MainActivity extends AppCompatActivity
         switch (v.getId())
         {
             case R.id.ver_text:
-                shell.getVersion().subscribe(
-                        s -> KLog.i(TAG, "onClick.versionRequest.ver:" + new String(s)),
-                        error -> KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
+                if (shell != null)
+                {
+                    shell.getVersion().subscribe(
+                            s -> KLog.i(TAG, "onClick.versionRequest.ver:" + new String(s)),
+                            error -> KLog.i(TAG, "onClick.versionRequest.error:" + error.getMessage()));
+                }
                 break;
 
             case R.id.model_text:
@@ -110,16 +113,19 @@ public class MainActivity extends AppCompatActivity
             String fileName = "pain.lok";
 
             byte[] fileData = getFileDatas(fileName);
-            shell.stopOutput().subscribe(
-                    bytes ->
-                    {
-                        shell.catFile(fileName, fileData).subscribe(
-                                progress -> KLog.i(TAG, "onClick.versionRequest.catFile.progress:" + progress),
-                                err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
-                        );
-                    },
-                    err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
-            );
+            if (shell != null)
+            {
+                shell.stopOutput().subscribe(
+                        bytes ->
+                        {
+                            shell.catFile(fileName, fileData).subscribe(
+                                    progress -> KLog.i(TAG, "onClick.versionRequest.catFile.progress:" + progress),
+                                    err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
+                            );
+                        },
+                        err -> KLog.i(TAG, "onClick.versionRequest.error:" + err.getMessage())
+                );
+            }
 
         }).start();
     }
@@ -182,6 +188,9 @@ public class MainActivity extends AppCompatActivity
     {
         super.onDestroy();
         TGattScaner.Scaner.stop();
-        shell.disconnect();
+        if (shell != null)
+        {
+            shell.disconnect();
+        }
     }
 }

@@ -120,12 +120,12 @@ public class TMemoryStream extends TStream
         return mMemory.length;
     }
 
-    void clear()
+    public void clear()
     {
         mSize = mPosition = 0;
     }
 
-    protected byte[] mMemory;
-    protected int mSize;
-    protected int mPosition;
+    public byte[] mMemory;
+    public int mSize;
+    public int mPosition;
 }

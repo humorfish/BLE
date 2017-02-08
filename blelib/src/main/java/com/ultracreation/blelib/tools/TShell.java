@@ -1,11 +1,10 @@
 package com.ultracreation.blelib.tools;
 
-import com.ultracreation.blelib.tools.TGapConnection.TShellSimpleRequest;
 import com.ultracreation.blelib.tools.TGapConnection.TShellCatRequest;
+import com.ultracreation.blelib.tools.TGapConnection.TShellSimpleRequest;
+
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
-
-import static com.ultracreation.blelib.tools.TConnectionManager.ConnectionManager;
 
 
 /**
@@ -18,21 +17,20 @@ public class TShell
     private String deviceId;
     private final int REQUEST_TIMEOUT = 3000;
     private TGapConnection mConnection;
-
     public TShell(String deviceId)
     {
         this.deviceId = deviceId;
-        mConnection = ConnectionManager.getConnection(deviceId);
+        mConnection = TConnectionManager.ConnectionManager.getConnection(deviceId);
     }
 
     public void disconnect()
     {
-        ConnectionManager.disconnect(deviceId);
+        TConnectionManager.ConnectionManager.disconnect(deviceId);
     }
 
     public void connect()
     {
-        ConnectionManager.connect(deviceId);
+        TConnectionManager.ConnectionManager.connect(deviceId);
     }
 
     public Subject<byte[]> getVersion()
