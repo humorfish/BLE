@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 
 import com.ultracreation.blelib.impl.IShellRequestManager;
 import com.ultracreation.blelib.impl.RequestCallBackFilter;
+import com.ultracreation.blelib.service.BLEService;
 import com.ultracreation.blelib.utils.KLog;
 
 import java.text.SimpleDateFormat;
@@ -22,19 +23,22 @@ import io.reactivex.subjects.Subject;
 
 public class TGapConnection extends IGapConnection
 {
+    private final BLEService mService;
     private String TAG = TGapConnection.class.getSimpleName();
     private TShellRequestManager requestManager;
 
-    public TGapConnection(@NonNull String deviceId)
+    public TGapConnection(@NonNull String deviceId, @NonNull BLEService mService)
     {
         super(deviceId);
+        this.mService = mService;
         requestManager = new TShellRequestManager();
     }
 
     @Override
     void start()
     {
-        requestManager.execute();
+        if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
+            requestManager.execute();
     }
 
     @Override
@@ -49,7 +53,7 @@ public class TGapConnection extends IGapConnection
         if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
         {
             cmd = cmd + "\r\n";
-            TService.Instance.mSevice.write(deviceId, cmd.getBytes(), null);
+            mService.write(deviceId, cmd.getBytes(), null);
         }
     }
 
@@ -60,10 +64,12 @@ public class TGapConnection extends IGapConnection
         {
             if (mConnectionState == BluetoothProfile.STATE_CONNECTED)
             {
-                TService.Instance.mSevice.write(deviceId, buf, e);
+                mService.write(deviceId, buf, e);
 
             } else
+            {
                 e.onError(new IllegalStateException("not connected"));
+            }
         });
     }
 
@@ -209,7 +215,7 @@ public class TGapConnection extends IGapConnection
 
             this.callBackFilter = callBackFilter;
             this.fileData = fileData;
-            long flushTime = (long)(2.4*fileData.length);
+            long flushTime = (long) (2.4 * fileData.length);
             if (flushTime > CAT_TIMEOUT)
                 CAT_TIMEOUT = flushTime;
         }
@@ -222,21 +228,21 @@ public class TGapConnection extends IGapConnection
 
             writeCmd(cmd);
             writeBuf(fileData).subscribe(
-                progress ->
-                {
-                    KLog.i(TAG, "progress:" + progress);
-                    SimpleDateFormat formatter = new SimpleDateFormat ("yyyy年MM月dd日 HH:mm:ss ");
-                    Date lastDate = new Date(lastCallBackTime);//获取当前时间
-                    String lastTime = formatter.format(lastDate);
-                    KLog.i(TAG, "lastTime:"  + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
-                    lastCallBackTime = System.currentTimeMillis();
+                    progress ->
+                    {
+                        KLog.i(TAG, "progress:" + progress);
+                        SimpleDateFormat formatter = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
+                        Date lastDate = new Date(lastCallBackTime);//获取当前时间
+                        String lastTime = formatter.format(lastDate);
+                        KLog.i(TAG, "lastTime:" + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
+                        lastCallBackTime = System.currentTimeMillis();
 
-                    if (progress == 100)
-                        onNext(99);
-                    else
-                        onNext(progress);
-                },
-                err -> onError(err.getMessage()));
+                        if (progress == 100)
+                            onNext(99);
+                        else
+                            onNext(progress);
+                    },
+                    err -> onError(err.getMessage()));
         }
 
         @Override
@@ -270,10 +276,10 @@ public class TGapConnection extends IGapConnection
                 @Override
                 public void run()
                 {
-                    SimpleDateFormat formatter = new SimpleDateFormat ("yyyy年MM月dd日 HH:mm:ss ");
+                    SimpleDateFormat formatter = new SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss ");
                     Date lastDate = new Date(lastCallBackTime);//获取当前时间
                     String lastTime = formatter.format(lastDate);
-                    KLog.i(TAG, "lastTime:"  + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
+                    KLog.i(TAG, "lastTime:" + lastTime + "  waitTime:" + (System.currentTimeMillis() - lastCallBackTime));
 
                     if (System.currentTimeMillis() - lastCallBackTime > CAT_TIMEOUT)
                         onError(cmd + " request time out");

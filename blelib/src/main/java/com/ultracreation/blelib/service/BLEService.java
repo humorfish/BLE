@@ -380,8 +380,6 @@ public class BLEService extends Service implements IService
     {
         mGattList.put(gatt.getDevice().getAddress(), gatt);
 
-        scanDevice(false);
-
         if (notification != null)
             notification.onConnected(gatt.getDevice().getAddress());
     }
@@ -389,8 +387,6 @@ public class BLEService extends Service implements IService
     @Override
     public void onConnectedFailed(String deviceId, String message)
     {
-        scanDevice(false);
-
         if (notification != null)
             notification.onConnectedFailed(deviceId, message);
     }
@@ -400,7 +396,6 @@ public class BLEService extends Service implements IService
     {
         mGattList.remove(deviceId);
         disconnectListenter.onNext(deviceId);
-        scanDevice(false);
 
         if (notification != null)
             notification.onDisconnected(deviceId);
@@ -421,14 +416,15 @@ public class BLEService extends Service implements IService
         if (mBluetoothAdapter == null)
         {
             onConnectedFailed(deviceId, "BLE is not ready");
+
         } else
         {
             scanDevice(true);
 
             if (! TextUtils.isEmpty(deviceId))
             {
-                connectionHandler.postDelayed(() -> {
-
+                connectionHandler.postDelayed(() ->
+                {
                     // TODO:Check if the address is in the gatt source.
                     final BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(deviceId);
                     if (device == null)
@@ -475,6 +471,7 @@ public class BLEService extends Service implements IService
 
     public Subject<String> getDisconnectListenter()
     {
+        KLog.i(TAG, "disconnectListenter:" + disconnectListenter);
         return disconnectListenter;
     }
 

@@ -1,5 +1,7 @@
 package com.ultracreation.blelib.tools;
 
+import android.text.TextUtils;
+
 import com.ultracreation.blelib.tools.TGapConnection.TShellCatRequest;
 import com.ultracreation.blelib.tools.TGapConnection.TShellSimpleRequest;
 
@@ -14,23 +16,22 @@ import io.reactivex.subjects.Subject;
 public class TShell
 {
     private final static String TAG = TShell.class.getSimpleName();
+
     private String deviceId;
     private final int REQUEST_TIMEOUT = 3000;
     private TGapConnection mConnection;
+
     public TShell(String deviceId)
     {
         this.deviceId = deviceId;
-        mConnection = TConnectionManager.ConnectionManager.getConnection(deviceId);
+
+        mConnection = TBLEConnectionManager.ConnectionManager.getConnection(deviceId);
     }
 
     public void disconnect()
     {
-        TConnectionManager.ConnectionManager.disconnect(deviceId);
-    }
-
-    public void connect()
-    {
-        TConnectionManager.ConnectionManager.connect(deviceId);
+        if (! TextUtils.isEmpty(deviceId))
+            TBLEConnectionManager.ConnectionManager.disconnect(deviceId);
     }
 
     public Subject<byte[]> getVersion()
@@ -39,7 +40,7 @@ public class TShell
         TShellSimpleRequest request = mConnection.new TShellSimpleRequest(">ver", datas -> new String(datas).startsWith("v."), REQUEST_TIMEOUT, listener);
         mConnection.addRequest(request);
 
-        mConnection.start();
+        TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
 
@@ -49,7 +50,7 @@ public class TShell
         TShellSimpleRequest request = mConnection.new TShellSimpleRequest(">osta", datas -> new String(datas).startsWith("0: ok"), REQUEST_TIMEOUT, listener);
         mConnection.addRequest(request);
 
-        mConnection.start();
+        TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
 
@@ -59,7 +60,7 @@ public class TShell
         TShellSimpleRequest request = mConnection.new TShellSimpleRequest(">osto", datas -> new String(datas).startsWith("0: ok"), REQUEST_TIMEOUT, listener);
         mConnection.addRequest(request);
 
-        mConnection.start();
+        TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
 
@@ -69,7 +70,7 @@ public class TShell
         TShellCatRequest request = mConnection.new TShellCatRequest<Integer>(">cat " + fileName + " -l=" + fileData.length, datas -> new String(datas).contains("3: end of cat"), REQUEST_TIMEOUT, fileData, listener);
         mConnection.addRequest(request);
 
-        mConnection.start();
+        TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
 }
