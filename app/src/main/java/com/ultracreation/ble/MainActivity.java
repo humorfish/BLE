@@ -29,7 +29,6 @@ public class MainActivity extends AppCompatActivity
 
     @BindView(R.id.ver_text)
     Button ver_text;
-
     @BindView(R.id.model_text)
     Button model_text;
 
@@ -45,8 +44,10 @@ public class MainActivity extends AppCompatActivity
         TGattScaner.Scaner.start(deviceName ->
         {
             if (TextUtils.isEmpty(deviceName))
+            {
                 return false;
-            else
+
+            } else
             {
                 String lowerCaseName = deviceName.toLowerCase();
                 if (lowerCaseName.endsWith(filters[0]))
@@ -63,11 +64,10 @@ public class MainActivity extends AppCompatActivity
                 return false;
             }
 
-        }, bleDevice -> {
+        }, bleDevice ->
+        {
             TGattScaner.Scaner.stop();
             shell = new TShell(bleDevice.device.getAddress());
-
-            shell.connect();
             shell.getVersion().subscribe(s ->
             {
                 KLog.i(TAG, "versionRequest.ver:" + new String(s));

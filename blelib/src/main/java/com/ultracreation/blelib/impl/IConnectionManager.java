@@ -15,4 +15,6 @@ public interface IConnectionManager
     boolean isConnected(@NonNull String deviceId);
     TGapConnection connect(@NonNull String deviceId);
     void clear();
+    void addDisconnectListener();
+    void start(String deviceId);
 }
