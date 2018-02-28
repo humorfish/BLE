@@ -1,13 +1,12 @@
 package com.ultracreation.blelib.tools;
 
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.content.Intent;
-import android.support.annotation.NonNull;
+import android.os.SystemClock;
 import android.text.TextUtils;
 
-import io.reactivex.disposables.Disposable;
+import com.ultracreation.blelib.bean.BLEDevice;
+
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -19,8 +18,11 @@ public enum TGattScaner
 {
     Scaner;
 
-    private Subject<BLEDevice> mSubject;
-    private Disposable mDisposable;
+    private final int STOPED = 0;
+    private final int SCANNING = 1;
+
+    private int scanStatus = STOPED;
+    private PublishSubject<BLEDevice> mSubject;
 
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback()
     {
@@ -39,35 +41,29 @@ public enum TGattScaner
         mSubject = PublishSubject.create();
     }
 
-    public void initBluetooth(@NonNull Activity activity, final int REQUEST_ENABLE_BT)
+    public boolean isScanning()
     {
-        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        if (mBluetoothAdapter == null)
-            error("init ble failed");
-        else if (!mBluetoothAdapter.isEnabled())
-        {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            activity.startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-        }
+        return (scanStatus == SCANNING);
     }
 
-    public void start(Filter filter, DeviceCallBack callBack)
+    public Subject<BLEDevice> start(Filter filter)
     {
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null)
-            error("ble not support");
+            throw new IllegalStateException("ble not support");
         else
         {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
-
+            SystemClock.sleep(100);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
-            if (mDisposable == null || mDisposable.isDisposed())
+            if (! isScanning())
             {
-                mDisposable = mSubject.filter(bleDevice ->
-                        filter.onCall(bleDevice.device.getName()))
-                        .subscribe(callBack::onCall);
+                if (filter != null)
+                    mSubject.filter(filter::onCall);
+                scanStatus = SCANNING;
             }
+
+            return mSubject;
         }
     }
 
@@ -75,10 +71,11 @@ public enum TGattScaner
     {
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter == null)
-            error("ble not support");
+            throw new IllegalStateException("ble not support");
         else
         {
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            SystemClock.sleep(100);
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         }
     }
@@ -88,40 +85,10 @@ public enum TGattScaner
         BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter != null)
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
-
-        if (mDisposable != null && !mDisposable.isDisposed())
-            mDisposable.dispose();
-
     }
-
-    void error(String message)
-    {
-        if (mSubject.hasObservers())
-        {
-            mSubject.onError(new IllegalStateException(message));
-        }
-    }
-
 
     public interface Filter
     {
-        boolean onCall(String deviceName);
-    }
-
-    public interface DeviceCallBack
-    {
-        void onCall(BLEDevice device);
-    }
-
-    public class BLEDevice
-    {
-        public BluetoothDevice device;
-        public int rssi;
-
-        public BLEDevice(BluetoothDevice device, int rssi)
-        {
-            this.device = device;
-            this.rssi = rssi;
-        }
+        boolean onCall(BLEDevice device);
     }
 }

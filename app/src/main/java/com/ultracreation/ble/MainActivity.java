@@ -1,5 +1,6 @@
 package com.ultracreation.ble;
 
+import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -40,47 +41,53 @@ public class MainActivity extends AppCompatActivity
         ButterKnife.bind(this);
 
         String[] filters = {".blt", "bluetensx", "bluetensq"};
-        TGattScaner.Scaner.initBluetooth(this, REQUEST_ENABLE_BT);
-        TGattScaner.Scaner.start(deviceName ->
+        initBluetooth();
+        try
         {
-            if (TextUtils.isEmpty(deviceName))
+            TGattScaner.Scaner.start(bledevice ->
             {
-                return false;
-
-            } else
-            {
-                String lowerCaseName = deviceName.toLowerCase();
-                if (lowerCaseName.endsWith(filters[0]))
-                    return true;
+                String deviceName = bledevice.device.getName();
+                if (TextUtils.isEmpty(deviceName))
+                {
+                    return false;
+                }
                 else
                 {
-                    for (int i = 1; i < filters.length; i++)
+                    String lowerCaseName = deviceName.toLowerCase();
+                    if (lowerCaseName.endsWith(filters[0]))
+                        return true;
+                    else
                     {
-                        if (filters[i].equals(lowerCaseName))
-                            return true;
+                        for (int i = 1; i < filters.length; i++)
+                        {
+                            if (filters[i].equals(lowerCaseName))
+                                return true;
+                        }
                     }
+
+                    return false;
                 }
-
-                return false;
-            }
-
-        }, bleDevice ->
-        {
-            TGattScaner.Scaner.stop();
-            shell = new TShell(bleDevice.device.getAddress());
-            shell.getVersion().subscribe(s ->
+            }).subscribe(bleDevice ->
             {
-                KLog.i(TAG, "versionRequest.ver:" + new String(s));
-                shell.startOutput().subscribe(
-                        s1 -> KLog.i(TAG, "startOutPut:" + new String(s1)),
-                        error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage())
-                );
+                TGattScaner.Scaner.stop();
+                shell = new TShell(bleDevice.device.getAddress());
+                shell.getVersion().subscribe(s ->
+                {
+                    KLog.i(TAG, "versionRequest.ver:" + new String(s));
+                    shell.startOutput().subscribe(
+                            s1 -> KLog.i(TAG, "startOutPut:" + new String(s1)),
+                            error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage())
+                    );
 
-            }, error ->
-            {
-                KLog.i(TAG, "versionRequest.error:" + error.getMessage());
+                }, error ->
+                {
+                    KLog.i(TAG, "versionRequest.error:" + error.getMessage());
+                });
             });
-        });
+        }
+        catch (Exception e)
+        {
+        }
     }
 
     @OnClick({R.id.ver_text, R.id.model_text})
@@ -141,11 +148,13 @@ public class MainActivity extends AppCompatActivity
 
             return fileData;
 
-        } catch (IOException e)
+        }
+        catch (IOException e)
         {
             e.printStackTrace();
 
-        } finally
+        }
+        finally
         {
             if (fileIn != null)
             {
@@ -154,7 +163,8 @@ public class MainActivity extends AppCompatActivity
                     fileIn.close();
                     fileIn = null;
 
-                } catch (IOException e)
+                }
+                catch (IOException e)
                 {
                     e.printStackTrace();
                 }
@@ -162,6 +172,19 @@ public class MainActivity extends AppCompatActivity
         }
 
         return new byte[0];
+    }
+
+    public void initBluetooth()
+    {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        if (mBluetoothAdapter == null)
+            Toast.makeText(this, "init ble failed", Toast.LENGTH_LONG).show();
+        else if (!mBluetoothAdapter.isEnabled())
+        {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+        }
     }
 
     @Override
@@ -173,9 +196,16 @@ public class MainActivity extends AppCompatActivity
             if (resultCode == RESULT_OK)
             {
                 Toast.makeText(this, "蓝牙已经开启", Toast.LENGTH_SHORT).show();
-                TGattScaner.Scaner.reStart();
+                try
+                {
+                    TGattScaner.Scaner.reStart();
+                }
+                catch (Exception e)
+                {
+                }
 
-            } else
+            }
+            else
             {
                 Toast.makeText(this, "不允许蓝牙开启", Toast.LENGTH_SHORT).show();
                 finish();
