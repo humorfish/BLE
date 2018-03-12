@@ -78,7 +78,6 @@ public class MainActivity extends AppCompatActivity
                             s1 -> KLog.i(TAG, "startOutPut:" + new String(s1)),
                             error -> KLog.i(TAG, "startOutPut.error:" + error.getMessage())
                     );
-
                 }, error ->
                 {
                     KLog.i(TAG, "versionRequest.error:" + error.getMessage());
@@ -203,7 +202,6 @@ public class MainActivity extends AppCompatActivity
                 catch (Exception e)
                 {
                 }
-
             }
             else
             {
@@ -219,8 +217,6 @@ public class MainActivity extends AppCompatActivity
         super.onDestroy();
         TGattScaner.Scaner.stop();
         if (shell != null)
-        {
             shell.disconnect();
-        }
     }
 }

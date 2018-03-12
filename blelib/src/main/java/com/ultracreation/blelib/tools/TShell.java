@@ -5,6 +5,9 @@ import android.text.TextUtils;
 import com.ultracreation.blelib.tools.TGapConnection.TShellCatRequest;
 import com.ultracreation.blelib.tools.TGapConnection.TShellSimpleRequest;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import io.reactivex.subjects.PublishSubject;
 import io.reactivex.subjects.Subject;
 
@@ -13,19 +16,39 @@ import io.reactivex.subjects.Subject;
  * Created by Administrator on 2016/11/28.
  */
 
-public class TShell
+public class TShell extends TAbstractShell
 {
     private final static String TAG = TShell.class.getSimpleName();
 
     private String deviceId;
     private final int REQUEST_TIMEOUT = 3000;
+    private int ConnectionTimeout = 5;
     private TGapConnection mConnection;
+    private static Map<String, TShell> cache = new HashMap<>();
 
-    public TShell(String deviceId)
+    private TShell(String deviceId, int connectionTimeout)
     {
-        this.deviceId = deviceId;
+        super();
 
-        mConnection = TBLEConnectionManager.ConnectionManager.getConnection(deviceId);
+        this.deviceId = deviceId;
+        this.ConnectionTimeout = connectionTimeout;
+    }
+
+    public static TShell Get(String deviceId, int connectionTimeout)
+    {
+        TShell shell = cache.get(deviceId);
+        if (shell == null)
+        {
+            shell = new TShell(deviceId, connectionTimeout);
+            cache.put(deviceId, shell);
+        }
+
+        return shell;
+    }
+
+    public TGapConnection connect()
+    {
+        return mConnection;
     }
 
     public void disconnect()
@@ -73,4 +96,5 @@ public class TShell
         TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
+
 }
