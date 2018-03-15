@@ -24,8 +24,6 @@
             </intent-filter>
         </activity>
 
-        <service android:name="com.ultracreation.blelib.tools.TService"/>
-
     </application>
 
 </manifest>
