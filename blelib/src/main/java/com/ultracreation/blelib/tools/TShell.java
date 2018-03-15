@@ -22,7 +22,8 @@ public class TShell extends TAbstractShell
 
     private String deviceId;
     private final int REQUEST_TIMEOUT = 3000;
-    private int ConnectionTimeout = 5;
+    public static final int DEFAULT_TIMEOUT = 5;
+    private int ConnectionTimeout = DEFAULT_TIMEOUT;
     private TGapConnection mConnection;
     private static Map<String, TShell> cache = new HashMap<>();
 
@@ -31,10 +32,11 @@ public class TShell extends TAbstractShell
         super();
 
         this.deviceId = deviceId;
-        this.ConnectionTimeout = connectionTimeout;
+        if (ConnectionTimeout > DEFAULT_TIMEOUT)
+            this.ConnectionTimeout = connectionTimeout;
     }
 
-    public static TShell Get(String deviceId, int connectionTimeout)
+    public static TShell get(String deviceId, int connectionTimeout)
     {
         TShell shell = cache.get(deviceId);
         if (shell == null)
@@ -48,6 +50,7 @@ public class TShell extends TAbstractShell
 
     public TGapConnection connect()
     {
+        mConnection = TBLEConnectionManager.ConnectionManager.getConnection(this.deviceId);
         return mConnection;
     }
 
@@ -96,5 +99,4 @@ public class TShell extends TAbstractShell
         TBLEConnectionManager.ConnectionManager.start(deviceId);
         return listener;
     }
-
 }

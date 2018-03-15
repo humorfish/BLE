@@ -70,7 +70,7 @@ public class MainActivity extends AppCompatActivity
             }).subscribe(bleDevice ->
             {
                 TGattScaner.Scaner.stop();
-                shell = new TShell(bleDevice.device.getAddress());
+                shell = TShell.get(bleDevice.device.getAddress(), 0);
                 shell.getVersion().subscribe(s ->
                 {
                     KLog.i(TAG, "versionRequest.ver:" + new String(s));

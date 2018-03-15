@@ -191,17 +191,7 @@ public class TGapConnection extends IGapConnection
         }
     }
 
-    private abstract class TProxyShellRequest<T> extends TShellRequest
-    {
-        public TProxyShellRequest(@NonNull String cmd, int timeOut, @NonNull Subject<T> listener)
-        {
-            super(cmd, timeOut, listener);
-        }
-
-        abstract void catFile();
-    }
-
-    public class TShellCatRequest<T> extends TProxyShellRequest
+    public class TShellCatRequest<T> extends TShellRequest
     {
         private long lastCallBackTime = 0;
         private long CAT_TIMEOUT = 3000;
@@ -220,7 +210,6 @@ public class TGapConnection extends IGapConnection
                 CAT_TIMEOUT = flushTime;
         }
 
-        @Override
         void catFile()
         {
             lastCallBackTime = System.currentTimeMillis();

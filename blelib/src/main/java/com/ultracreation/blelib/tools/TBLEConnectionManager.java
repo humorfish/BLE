@@ -68,30 +68,35 @@ public enum TBLEConnectionManager implements IConnectionManager
     public TGapConnection getConnection(@NonNull String deviceId)
     {
         if (mConnectionList.containsKey(deviceId))
-        {
             return mConnectionList.get(deviceId);
-
-        } else
-        {
+        else
             return connect(deviceId);
-        }
     }
 
     @Override
     public void disconnect(@NonNull String deviceId)
     {
-        mService.disconnect(deviceId);
+        if (mService == null)
+            throw new Error("bind server first!!");
+        else
+            mService.disconnect(deviceId);
     }
 
     @Override
     public boolean isConnected(@NonNull String deviceId)
     {
-        return mService.isConnected(deviceId);
+        if (mService == null)
+            throw new Error("bind server first!!");
+        else
+            return mService.isConnected(deviceId);
     }
 
     @Override
     public TGapConnection connect(@NonNull String deviceId)
     {
+        if (mService == null)
+            throw new Error("bind server first!!");
+
         KLog.i(TAG, "-----3---->deviceId:"+ deviceId);
 
         TGapConnection connection = new TGapConnection(deviceId, mService);
@@ -151,6 +156,9 @@ public enum TBLEConnectionManager implements IConnectionManager
     @Override
     public void addDisconnectListener()
     {
+        if (mService == null)
+            throw new Error("bind server first!!");
+
         mService.getDisconnectListenter().subscribe(deviceId ->
         {
             KLog.i(TAG, "addDisconnectListener.deviceId:" + deviceId);

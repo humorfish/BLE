@@ -31,9 +31,9 @@ public abstract class TAbstractShell
         status = DISCONNECTED;
     }
 
-    public Subject<String> Connect()
+    public TGapConnection connect()
     {
-        return statusSubject;
+        return null;
     }
 
     public void disconnect()
@@ -45,7 +45,7 @@ public abstract class TAbstractShell
         return statusSubject;
     }
 
-    protected void RefreshConnectionTimeout()
+    protected void refreshConnectionTimeout()
     {
     }
 }
