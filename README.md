@@ -1,5 +1,5 @@
 # BLE
-BLE LIB 
+BLE LIB major function
 
 1.connect device
 
